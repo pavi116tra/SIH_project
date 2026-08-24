@@ -146,6 +146,55 @@ class GlobalIDManager:
         self.global_id_counter += 1
         return f"P{self.global_id_counter:03d}"
 
+    def get_summary_analytics(self):
+        """
+        Returns real-time analytics summary of active cameras, total visible persons,
+        and unique Global Level 2 identities, formatted for multi-cam dashboard and UI hierarchy panel.
+        """
+        with self.lock:
+            active_cams = set()
+            visible_count = 0
+            unique_gids = set()
+            now_ts = time.time()
+            hierarchy = []
+
+            for gid, person in list(self.global_people.items()):
+                if (now_ts - person.last_seen_ts) <= self.retention_seconds:
+                    unique_gids.add(gid)
+                    active_tracks_list = []
+                    for cam_id, track_info in list(person.tracks.items()):
+                        if (now_ts - track_info["last_seen_ts"]) <= 5.0:
+                            active_cams.add(cam_id)
+                            visible_count += 1
+                            active_tracks_list.append({
+                                "camera_id": cam_id,
+                                "track_id": track_info["track_id"],
+                                "confidence": track_info["confidence"],
+                                "last_seen_ts": track_info["last_seen_ts"],
+                                "source_type": track_info["source_type"]
+                            })
+
+                    hierarchy.append({
+                        "global_id": gid,
+                        "suspect_name": person.suspect_name or "Unknown",
+                        "first_seen": person.first_seen,
+                        "last_seen": person.last_seen,
+                        "prototypes_count": len(person.prototypes),
+                        "active_tracks": active_tracks_list
+                    })
+
+            hierarchy.sort(key=lambda x: x["global_id"])
+
+            return {
+                "configured_feeds": 4,
+                "active_feeds_count": len(active_cams),
+                "visible_human_count": visible_count,
+                "unique_human_count": len(unique_gids),
+                "global_identities_count": len(unique_gids),
+                "active_cameras": sorted(list(active_cams)),
+                "hierarchy": hierarchy
+            }
+
     def reset_camera_tracks(self, camera_id):
         """Hook called when a video source loops or is restarted."""
         with self.lock:
