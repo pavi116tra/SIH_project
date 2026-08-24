@@ -100,7 +100,7 @@ class GlobalIDManager:
     def __init__(
         self,
         retention_minutes=60,
-        reid_match_threshold=0.88,
+        reid_match_threshold=0.65,
         device="auto",
         auto_merge_interval=5.0
     ):
@@ -108,7 +108,7 @@ class GlobalIDManager:
         self.retention_seconds = retention_minutes * 60
         self.reid_match_threshold = reid_match_threshold
 
-        self.reid_extractor = PersonReIDExtractor(device=device)
+        self.reid_extractor = PersonReIDExtractor(model_name="osnet_x1_0", device=device)
 
         self.global_people = {}  # {global_id_str: GlobalPerson}
         self.local_to_global_map = {}  # {(camera_id, local_track_id): global_id}
@@ -166,17 +166,16 @@ class GlobalIDManager:
 
     def _get_representative_embedding(self, camera_id, local_track_id, emb, window_seconds=2.0):
         """Accumulates OSNet embeddings over a ~2-second window per track and returns L2-normalized mean."""
-        if emb is None:
-            return None
-
         now_ts = time.time()
         key = (camera_id, local_track_id)
         if key not in self.track_buffers:
             self.track_buffers[key] = []
 
-        self.track_buffers[key].append((now_ts, emb))
-        # Keep only last 2 seconds of embeddings
-        self.track_buffers[key] = [item for item in self.track_buffers[key] if (now_ts - item[0]) <= window_seconds]
+        if emb is not None:
+            self.track_buffers[key].append((now_ts, emb))
+
+        # Keep only last 2 seconds of valid embeddings
+        self.track_buffers[key] = [item for item in self.track_buffers[key] if (now_ts - item[0]) <= window_seconds and item[1] is not None]
 
         valid_embs = [item[1] for item in self.track_buffers[key]]
         if not valid_embs:
