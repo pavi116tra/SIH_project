@@ -41,7 +41,7 @@ tracker:
 global_id:
   enabled: true
   retention_minutes: 60               # Configurable temporal retention policy (15, 30, 60, 120 mins)
-  reid_match_threshold: 0.55          # Optimal cosine similarity threshold for cross-camera ReID matching
+  reid_match_threshold: 0.88          # Optimal cosine similarity threshold based on empirical OSNet matrix (0.8381 max diff vs 0.9891 min same)
   device: "auto"
 
 # Analytics & Counting Configuration

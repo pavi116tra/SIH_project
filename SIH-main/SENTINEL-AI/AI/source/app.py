@@ -996,17 +996,8 @@ def camera_stream_worker(camera_id):
 
             frame_counter += 1
 
-            # Run High-Accuracy Human Detection, ByteTrack Multi-Object Tracking & Trajectory Renderer
-            try:
-                src_type = "live" if camera_id == "CAM01" else "file"
-                human_tracks, non_human_objects, stats = human_tracker_engine.process_frame(frame, camera_id=camera_id, source_type=src_type)
-                current_tracking_stats = stats
-                frame = surveillance_renderer.draw_annotations(frame, human_tracks, non_human_objects, stats)
-            except Exception as trk_err:
-                print(f"[Tracker/Renderer Error] {camera_id}: {trk_err}")
-
-            # Face Recognition across ALL camera streams (throttled to every 5 frames)
-            if frame_counter % 5 == 0:
+            # Face Recognition across ALL camera streams (throttled to every 3 frames)
+            if frame_counter % 3 == 0:
                 try:
                     faces = extract_face(frame)
                     current_cam_faces = []
@@ -1041,6 +1032,33 @@ def camera_stream_worker(camera_id):
                     active_camera_faces[camera_id] = current_cam_faces
                 except Exception as face_err:
                     pass
+
+            # Build spatial suspect_map mapping local track IDs to recognized suspect names
+            track_suspect_map = {}
+            cached_faces = active_camera_faces.get(camera_id, [])
+            tracker_inst = human_tracker_engine.trackers.get(camera_id)
+            if tracker_inst and cached_faces:
+                active_tracks = getattr(tracker_inst, 'tracked_stracks', getattr(tracker_inst, 'tracked_tracks', []))
+                for track in active_tracks:
+                    t_bbox = getattr(track, 'tlbr', getattr(track, 'bbox', None))
+                    if t_bbox is not None:
+                        tx1, ty1, tx2, ty2 = map(int, t_bbox)
+                        for face_info in cached_faces:
+                            if face_info["name"] != "Unknown":
+                                fx, fy, fw, fh = face_info["bbox"]
+                                if fx >= tx1 - 30 and fx <= tx2 + 30 and fy >= ty1 - 30 and fy <= ty2 + 30:
+                                    track_suspect_map[track.track_id] = face_info["name"]
+
+            # Run High-Accuracy Human Detection, ByteTrack Multi-Object Tracking & Trajectory Renderer
+            try:
+                src_type = "live" if camera_id == "CAM01" else "file"
+                human_tracks, non_human_objects, stats = human_tracker_engine.process_frame(
+                    frame, camera_id=camera_id, source_type=src_type, suspect_map=track_suspect_map
+                )
+                current_tracking_stats = stats
+                frame = surveillance_renderer.draw_annotations(frame, human_tracks, non_human_objects, stats)
+            except Exception as trk_err:
+                print(f"[Tracker/Renderer Error] {camera_id}: {trk_err}")
 
             # Draw face detection & suspect overlays on frame
             cached_faces = active_camera_faces.get(camera_id, [])

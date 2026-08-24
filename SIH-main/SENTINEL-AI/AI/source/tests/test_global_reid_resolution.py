@@ -101,6 +101,45 @@ def test_reid_and_global_id_resolution():
 
     analytics_final = gid_mgr.get_summary_analytics()
     print(f"\nFinal Unique Global People Count: {analytics_final['total_unique_global_people']}")
+
+    print("\n--- TEST 4: Suspect Identity Ground Truth Anchoring (Bug A & Bug B Resolution) ---")
+    gid_mgr_suspect = GlobalIDManager(reid_match_threshold=0.60, device="cpu", auto_merge_interval=10.0)
+
+    # 4a: PRAKALYA on CAM01 -> P001
+    gid_p1 = gid_mgr_suspect.get_or_assign_global_id(dummy_crop, "CAM01", local_track_id=1, source_type="live", suspect_name="PRAKALYA")
+    print(f"CAM01 Suspect 'PRAKALYA' -> Assigned Global ID: {gid_p1}")
+
+    # 4b: PRAKALYA on CAM03 (same suspect, different camera) -> MUST map to P001 (Resolves Bug B Split)
+    gid_p3 = gid_mgr_suspect.get_or_assign_global_id(dummy_crop, "CAM03", local_track_id=4, source_type="file", suspect_name="PRAKALYA")
+    print(f"CAM03 Suspect 'PRAKALYA' -> Assigned Global ID: {gid_p3}")
+    assert gid_p3 == gid_p1, f"FAILURE: Same suspect 'PRAKALYA' on CAM03 must resolve to {gid_p1}, got {gid_p3}!"
+
+    # 4c: PAVITRA S on CAM02 (different suspect) -> MUST map to P002 (Resolves Bug A Collision)
+    gid_pav2 = gid_mgr_suspect.get_or_assign_global_id(dummy_crop, "CAM02", local_track_id=2, source_type="file", suspect_name="PAVITRA S")
+    print(f"CAM02 Suspect 'PAVITRA S' -> Assigned Global ID: {gid_pav2}")
+    assert gid_pav2 != gid_p1, f"FAILURE: Different suspect 'PAVITRA S' must not collide with {gid_p1}!"
+
+    # 4d: PAVITRA S on CAM04 (same suspect) -> MUST map to P002
+    gid_pav4 = gid_mgr_suspect.get_or_assign_global_id(dummy_crop, "CAM04", local_track_id=7, source_type="file", suspect_name="PAVITRA S")
+    print(f"CAM04 Suspect 'PAVITRA S' -> Assigned Global ID: {gid_pav4}")
+    assert gid_pav4 == gid_pav2, f"FAILURE: Same suspect 'PAVITRA S' on CAM04 must resolve to {gid_pav2}, got {gid_pav4}!"
+
+    # 4e: Verify Merge Conflict Rejection
+    conflict_merges = gid_mgr_suspect.run_merge_pass(merge_threshold=0.50)
+    print(f"Merge Pass Executed across named suspects. Merges performed: {conflict_merges} (Expected: 0)")
+    assert conflict_merges == 0, "FAILURE: Merge pass must reject merging two different named suspects!"
+
+    # 4f: Print Suspect Name -> Global ID Mapping Table
+    analytics_suspect = gid_mgr_suspect.get_summary_analytics()
+    print("\n" + "=" * 60)
+    print("SUSPECT NAME TO GLOBAL ID MAPPING TABLE")
+    print("=" * 60)
+    for suspect_name, global_id in analytics_suspect["suspect_to_global_map"].items():
+        person_rec = next((r for r in analytics_suspect["records"] if r["global_id"] == global_id), None)
+        cams = [c["camera"] + ":Track#" + str(c["track_id"]) for c in person_rec["cameras"]] if person_rec else []
+        print(f"  Suspect: {suspect_name:<12} --> Global ID: {global_id:<6} (Cameras: {', '.join(cams)})")
+    print("=" * 60)
+
     print("=" * 70)
     print("ALL RE-ID & GLOBAL IDENTITY RESOLUTION TESTS PASSED SUCCESSFULLY!")
     print("=" * 70)

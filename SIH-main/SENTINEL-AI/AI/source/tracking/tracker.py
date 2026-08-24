@@ -157,6 +157,10 @@ class Track:
         center_y = float((bbox[1] + bbox[3]) / 2.0)
         self.history.append((center_x, center_y))
 
+    @property
+    def tlbr(self):
+        return self.bbox
+
     def predict(self):
         """Predict next position using Kalman Filter."""
         self.mean, self.covariance = self.kf.predict(self.mean, self.covariance)
@@ -245,6 +249,18 @@ class ByteTracker:
         self.lost_tracks = []
         self.removed_tracks = []
         self.frame_id = 0
+
+    @property
+    def tracked_stracks(self):
+        return self.tracked_tracks
+
+    @property
+    def lost_stracks(self):
+        return self.lost_tracks
+
+    @property
+    def removed_stracks(self):
+        return self.removed_tracks
 
     def update(self, detections):
         """

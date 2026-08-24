@@ -105,7 +105,7 @@ class HumanTrackerEngine:
                 return yaml.safe_load(f)
         return {}
 
-    def process_frame(self, frame, camera_id="CAM01", source_type="file"):
+    def process_frame(self, frame, camera_id="CAM01", source_type="file", suspect_map=None):
         """
         Process a single image frame through detection, class filtering, camera-specific tracking,
         and Two-Level Global ID association (P001, P002...).
@@ -130,36 +130,58 @@ class HumanTrackerEngine:
         human_detections = []
         non_human_objects = []
 
-        if results and len(results) > 0 and results[0].boxes is not None:
-            boxes = results[0].boxes
-            for box in boxes:
-                # Safe, linter-friendly extraction for Ultralytics YOLO Box objects
-                cls_id = int(box.cls.item() if hasattr(box.cls, 'item') else box.cls)
-                score = float(box.conf.item() if hasattr(box.conf, 'item') else box.conf)
-                xyxy_data = box.xyxy[0] if len(box.xyxy.shape) > 1 else box.xyxy
-                xyxy = xyxy_data.cpu().tolist() if hasattr(xyxy_data, 'cpu') else list(xyxy_data)
+        if results:
+            first_res = results[0] if isinstance(results, (list, tuple)) else next(iter(results), None)
+            boxes_obj = getattr(first_res, "boxes", None) if first_res is not None else None
 
-                # Ignore inanimate/non-living objects (toothbrushes, pens, cell phones, chairs, etc.)
-                if cls_id not in living_organism_ids:
-                    continue
+            if boxes_obj is not None:
+                for box in boxes_obj:
+                    # Safe extraction for Ultralytics YOLO Box objects
+                    cls_val = getattr(box.cls, "item", lambda: box.cls)()
+                    cls_id = int(cls_val)
+                    score_val = getattr(box.conf, "item", lambda: box.conf)()
+                    score = float(score_val)
 
-                class_name = str(self.detector.names.get(cls_id, f"Class_{cls_id}")).title() if hasattr(self.detector, 'names') else f"Class_{cls_id}"
+                    xyxy_attr = getattr(box, "xyxy", None)
+                    if xyxy_attr is not None:
+                        if hasattr(xyxy_attr, "ndim") and xyxy_attr.ndim > 1:
+                            xyxy_vec = xyxy_attr[0]
+                        elif isinstance(xyxy_attr, (list, tuple)) and len(xyxy_attr) > 0 and isinstance(xyxy_attr[0], (list, tuple)):
+                            xyxy_vec = xyxy_attr[0]
+                        else:
+                            xyxy_vec = xyxy_attr
 
-                if cls_id == self.target_class_id:
-                    human_detections.append({
-                        "bbox": xyxy,
-                        "score": score,
-                        "class_id": cls_id,
-                        "class_name": "Person"
-                    })
-                else:
-                    # Living Organism (Cat, Dog, Bird, Cow, Horse, etc.)
-                    non_human_objects.append({
-                        "bbox": xyxy,
-                        "score": score,
-                        "class_id": cls_id,
-                        "class_name": class_name
-                    })
+                        if hasattr(xyxy_vec, "cpu"):
+                            xyxy = xyxy_vec.cpu().tolist()
+                        elif hasattr(xyxy_vec, "tolist"):
+                            xyxy = xyxy_vec.tolist()
+                        else:
+                            xyxy = list(xyxy_vec)
+                    else:
+                        continue
+
+                    # Ignore inanimate/non-living objects (toothbrushes, pens, cell phones, chairs, etc.)
+                    if cls_id not in living_organism_ids:
+                        continue
+
+                    det_names = getattr(self.detector, "names", {})
+                    class_name = str(det_names.get(cls_id, f"Class_{cls_id}")).title()
+
+                    if cls_id == self.target_class_id:
+                        human_detections.append({
+                            "bbox": xyxy,
+                            "score": score,
+                            "class_id": cls_id,
+                            "class_name": "Person"
+                        })
+                    else:
+                        # Living Organism (Cat, Dog, Bird, Cow, Horse, etc.)
+                        non_human_objects.append({
+                            "bbox": xyxy,
+                            "score": score,
+                            "class_id": cls_id,
+                            "class_name": class_name
+                        })
 
         # 2. Pass human detections to camera's independent ByteTracker (Level 1 Local Tracking)
         tracker = self._get_tracker(camera_id)
@@ -172,7 +194,9 @@ class HumanTrackerEngine:
             local_id = track.track_id
             current_active_set.add(local_id)
 
-            # Level 2 Identity: Resolve Global Person ID (P001, P002...) via ReID
+            suspect_name = suspect_map.get(local_id) if suspect_map else None
+
+            # Level 2 Identity: Resolve Global Person ID (P001, P002...) via ReID / Suspect Anchoring
             x1, y1, x2, y2 = map(int, track.bbox)
             h_f, w_f = frame.shape[:2]
             x1, y1 = max(0, x1), max(0, y1)
@@ -180,9 +204,10 @@ class HumanTrackerEngine:
             person_crop = frame[y1:y2, x1:x2] if (x2 > x1 and y2 > y1) else None
 
             global_id = self.global_id_manager.get_or_assign_global_id(
-                person_crop, camera_id, local_id, source_type=source_type
+                person_crop, camera_id, local_id, source_type=source_type, suspect_name=suspect_name
             )
             track.global_id = global_id
+            track.suspect_name = suspect_name
 
             prev_set = self.previous_active_tracks.get(camera_id, set())
             if local_id not in prev_set:

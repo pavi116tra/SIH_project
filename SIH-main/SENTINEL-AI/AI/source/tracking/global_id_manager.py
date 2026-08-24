@@ -17,8 +17,9 @@ class GlobalPerson:
     Represents a persistent Global Person identity (P001, P002...) across all cameras.
     """
 
-    def __init__(self, global_id, initial_embedding, camera_id, local_track_id, source_type="file", timestamp=None):
+    def __init__(self, global_id, initial_embedding, camera_id, local_track_id, source_type="file", timestamp=None, suspect_name=None):
         self.global_id = global_id  # e.g., "P001"
+        self.suspect_name = suspect_name  # e.g., "PRAKALYA" or None
         self.first_seen = timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.last_seen_ts = time.time()
         self.last_seen = self.first_seen
@@ -44,7 +45,7 @@ class GlobalPerson:
         return mean_vec
 
     def update_observation(self, embedding, camera_id, local_track_id, source_type="file", sim_score=1.0):
-        """Update last seen time, add embedding sample, and update track reference."""
+        """Update last seen time, add embedding sample, and update weighted running embedding."""
         now_ts = time.time()
         self.last_seen_ts = now_ts
         self.last_seen = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -61,7 +62,17 @@ class GlobalPerson:
             self.embedding_history.append(embedding)
             if len(self.embedding_history) > 30:
                 self.embedding_history.pop(0)
-            self.running_embedding = self._compute_running_embedding()
+
+            # Weighted Moving Average for OSNet embeddings: 0.7 * old + 0.3 * new
+            if self.running_embedding is None:
+                self.running_embedding = embedding
+            else:
+                updated_vec = 0.7 * self.running_embedding + 0.3 * embedding
+                norm = np.linalg.norm(updated_vec)
+                if norm > 0:
+                    self.running_embedding = updated_vec / norm
+                else:
+                    self.running_embedding = updated_vec
 
     def get_max_similarity(self, query_emb, reid_extractor):
         """Compute maximum cosine similarity against running embedding and stored history."""
@@ -81,15 +92,15 @@ class GlobalPerson:
 
 class GlobalIDManager:
     """
-    Manages Global Person identities across multi-camera streams.
+    Manages Global Person identities across multi-camera streams using OSNet embeddings.
     Enforces a single central identity gallery, thread safety, periodic background merging,
-    and video-source loop handling.
+    video-source loop handling, Suspect Ground Truth Anchoring, and Suspect Name Propagation.
     """
 
     def __init__(
         self,
         retention_minutes=60,
-        reid_match_threshold=0.60,
+        reid_match_threshold=0.88,
         device="auto",
         auto_merge_interval=5.0
     ):
@@ -101,6 +112,7 @@ class GlobalIDManager:
 
         self.global_people = {}  # {global_id_str: GlobalPerson}
         self.local_to_global_map = {}  # {(camera_id, local_track_id): global_id}
+        self.suspect_to_global_map = {}  # {suspect_name: global_id_str}
         self.track_buffers = {}  # {(camera_id, local_track_id): [(timestamp, embedding), ...]}
         self.global_id_counter = 0
 
@@ -128,7 +140,7 @@ class GlobalIDManager:
             print(f"[GlobalIDManager] Reset local track mappings for {camera_id} (Global IDs preserved).")
 
     def _get_representative_embedding(self, camera_id, local_track_id, emb, window_seconds=2.0):
-        """Accumulates embeddings over a ~2-second window per track and returns L2-normalized mean."""
+        """Accumulates OSNet embeddings over a ~2-second window per track and returns L2-normalized mean."""
         if emb is None:
             return None
 
@@ -153,7 +165,7 @@ class GlobalIDManager:
 
     def merge_identities(self, source_gid, target_gid, similarity=0.0):
         """
-        Merge source_gid into target_gid when ReID proves they represent the same person.
+        Merge source_gid into target_gid when OSNet ReID proves they represent the same person.
         Updates local_to_global_map, merges track references, and recalculates running embedding.
         """
         if source_gid == target_gid or source_gid not in self.global_people or target_gid not in self.global_people:
@@ -161,6 +173,12 @@ class GlobalIDManager:
 
         source_person = self.global_people.pop(source_gid)
         target_person = self.global_people[target_gid]
+
+        # Preserve suspect_name anchor & propagate to target
+        if source_person.suspect_name and not target_person.suspect_name:
+            target_person.suspect_name = source_person.suspect_name
+            if target_person.suspect_name:
+                self.suspect_to_global_map[target_person.suspect_name] = target_gid
 
         # Transfer embeddings
         target_person.embedding_history.extend(source_person.embedding_history)
@@ -178,13 +196,16 @@ class GlobalIDManager:
             if mapped_gid == source_gid:
                 self.local_to_global_map[key] = target_gid
 
-        print(f"[GLOBAL ID MERGE] Merged duplicate identity {source_gid} into {target_gid} (Similarity={similarity*100:.1f}%)")
+        print(f"[GLOBAL ID MERGE] Merged duplicate identity {source_gid} into {target_gid} (OSNet Sim={similarity*100:.1f}%)")
 
-    def run_merge_pass(self, merge_threshold=0.75):
+    def run_merge_pass(self, merge_threshold=None):
         """
-        Pairwise cosine similarity scan across all active Global IDs.
-        Merges redundant entries exceeding merge_threshold.
+        Pairwise cosine similarity scan across all active Global IDs using OSNet embeddings.
+        Merges redundant entries exceeding merge_threshold (defaults to self.reid_match_threshold).
         """
+        if merge_threshold is None:
+            merge_threshold = self.reid_match_threshold
+
         with self.lock:
             active_gids = list(self.global_people.keys())
             now_ts = time.time()
@@ -210,9 +231,23 @@ class GlobalIDManager:
 
                     sim = self.reid_extractor.compute_similarity(person1.running_embedding, person2.running_embedding)
                     if sim >= merge_threshold:
-                        older_gid = min(gid1, gid2)
-                        newer_gid = max(gid1, gid2)
-                        self.merge_identities(newer_gid, older_gid, similarity=sim)
+                        name1 = person1.suspect_name if (person1.suspect_name and person1.suspect_name != "Unknown") else None
+                        name2 = person2.suspect_name if (person2.suspect_name and person2.suspect_name != "Unknown") else None
+
+                        # HARD REJECTION: Never merge two different named suspects!
+                        if name1 and name2 and name1 != name2:
+                            print(f"[REID HARD BLOCK] appearance-similarity suggests match ({sim:.2f}) between {gid1} ('{name1}') and {gid2} ('{name2}') but suspect identities conflict — treating as different people")
+                            continue
+
+                        # If one is named, keep the named one as target
+                        if name2 and not name1:
+                            target_g = gid2
+                            src_g = gid1
+                        else:
+                            target_g = min(gid1, gid2)
+                            src_g = max(gid1, gid2)
+
+                        self.merge_identities(src_g, target_g, similarity=sim)
                         merged_count += 1
 
             return merged_count
@@ -222,29 +257,66 @@ class GlobalIDManager:
         while self._running:
             time.sleep(self.auto_merge_interval)
             try:
-                self.run_merge_pass(merge_threshold=0.75)
+                self.run_merge_pass(merge_threshold=self.reid_match_threshold)
             except Exception as e:
                 print(f"[GlobalIDManager] Error in background merge loop: {e}")
 
-    def get_or_assign_global_id(self, crop, camera_id, local_track_id, source_type="file"):
+    def get_or_assign_global_id(self, crop, camera_id, local_track_id, source_type="file", suspect_name=None, suspect_confidence=0.0):
         """
-        Thread-safe method mapping a local track observation to a central Global Person ID.
+        Thread-safe method mapping a local track observation to a central Global Person ID using OSNet embeddings.
+        If a confident suspect match exists (suspect_name != "Unknown"), suspect identity ANCHORS the Global ID.
+        Also propagates suspect names across all tracks linked under the same Global ID.
         """
         with self.lock:
             key = (camera_id, local_track_id)
-            emb = self.reid_extractor.extract_features(crop)
+            emb = self.reid_extractor.extract_features(crop) if crop is not None else None
             rep_emb = self._get_representative_embedding(camera_id, local_track_id, emb)
             now_ts = time.time()
 
-            # 1. If key is already bound to a Global ID, update observation and return
+            # --- PATH A: Confident Suspect Match Ground Truth (Face Recognition Anchored) ---
+            if suspect_name and suspect_name != "Unknown":
+                if suspect_name in self.suspect_to_global_map:
+                    target_gid = self.suspect_to_global_map[suspect_name]
+                    print(f"[SUSPECT ANCHOR MATCH] Camera={camera_id} Track={local_track_id} Suspect='{suspect_name}' -> GlobalID={target_gid}")
+                else:
+                    # First time seeing this suspect anywhere: check if previous key had a temporary unknown ID
+                    prev_gid = self.local_to_global_map.get(key)
+                    if prev_gid and prev_gid in self.global_people and not self.global_people[prev_gid].suspect_name:
+                        target_gid = prev_gid
+                    else:
+                        target_gid = self._generate_next_global_id()
+
+                    self.suspect_to_global_map[suspect_name] = target_gid
+                    print(f"[SUSPECT ANCHOR NEW] Camera={camera_id} Track={local_track_id} Suspect='{suspect_name}' -> Created GlobalID={target_gid}")
+
+                # Ensure GlobalPerson record exists & is anchored
+                if target_gid not in self.global_people:
+                    init_emb = rep_emb if rep_emb is not None else emb
+                    new_person = GlobalPerson(target_gid, init_emb, camera_id, local_track_id, source_type=source_type, suspect_name=suspect_name)
+                    self.global_people[target_gid] = new_person
+                else:
+                    person = self.global_people[target_gid]
+                    person.suspect_name = suspect_name
+                    person.update_observation(rep_emb, camera_id, local_track_id, source_type=source_type, sim_score=1.0)
+
+                self.local_to_global_map[key] = target_gid
+                return target_gid
+
+            # --- PATH B: Unrecognized / Unknown Person (Fallback to OSNet Appearance Re-ID) ---
+            # 1. If key is already bound to a Global ID, update observation, check suspect propagation, and return
             if key in self.local_to_global_map:
                 current_gid = self.local_to_global_map[key]
                 if current_gid in self.global_people:
                     person = self.global_people[current_gid]
                     person.update_observation(rep_emb, camera_id, local_track_id, source_type=source_type, sim_score=1.0)
+
+                    # SUSPECT NAME PROPAGATION: If Global ID acquired a suspect name on another camera, pass it back!
+                    if person.suspect_name:
+                        print(f"[SUSPECT PROPAGATED] {camera_id} / Track {local_track_id} -> Inherited Suspect '{person.suspect_name}' via Global ID {current_gid}")
+
                     return current_gid
 
-            # 2. Search central Global Identity Gallery for eligible match
+            # 2. Search central Global Identity Gallery for eligible OSNet match
             best_gid = None
             best_sim = 0.0
             matrix_log = []
@@ -254,13 +326,19 @@ class GlobalIDManager:
                     query_emb = rep_emb if rep_emb is not None else emb
                     if query_emb is not None:
                         sim = person.get_max_similarity(query_emb, self.reid_extractor)
+
+                        # RULE 3a: Hard Negative Block - Conflicting confident suspect identities must NEVER match
+                        if suspect_name and suspect_name != "Unknown" and person.suspect_name and person.suspect_name != "Unknown" and suspect_name != person.suspect_name:
+                            print(f"[REID HARD BLOCK] appearance-similarity suggests match ({sim:.2f}) between candidate {gid} ('{person.suspect_name}') and track ('{suspect_name}') but suspect identities conflict — treating as different people")
+                            continue
+
                         matrix_log.append(f"{gid}:{sim:.2f}")
                         if sim > best_sim:
                             best_sim = sim
                             best_gid = gid
 
             if matrix_log:
-                print(f"[REID MATRIX] Camera={camera_id} Track={local_track_id} vs Gallery [{', '.join(matrix_log)}]")
+                print(f"[OSNet MATRIX] Camera={camera_id} Track={local_track_id} vs Gallery [{', '.join(matrix_log)}]")
 
             # 3. Match against existing Global ID if similarity >= threshold
             if best_gid is not None and best_sim >= self.reid_match_threshold:
@@ -269,7 +347,13 @@ class GlobalIDManager:
                 person.update_observation(rep_emb, camera_id, local_track_id, source_type=source_type, sim_score=best_sim)
                 self.local_to_global_map[key] = best_gid
 
-                print(f"[REID MATCH]\n{camera_id} / Track {local_track_id} -> Existing {best_gid} (Sim: {best_sim*100:.1f}%)")
+                # RULE 3b: Flag unverified merges between named suspect and unknown track
+                if (suspect_name and suspect_name != "Unknown" and (not person.suspect_name or person.suspect_name == "Unknown")) or \
+                   ((not suspect_name or suspect_name == "Unknown") and person.suspect_name and person.suspect_name != "Unknown"):
+                    print(f"[OSNet REID MATCH (UNVERIFIED)] Camera={camera_id} Track={local_track_id} ('{suspect_name or 'Unknown'}') -> Matched {best_gid} ('{person.suspect_name or 'Unknown'}') with Sim: {best_sim*100:.1f}%")
+                else:
+                    print(f"[OSNet REID MATCH]\n{camera_id} / Track {local_track_id} -> Matched {best_gid} (Sim: {best_sim*100:.1f}%)")
+
                 if old_tracks and old_tracks[-1][0] != camera_id:
                     old_cam, old_info = old_tracks[-1]
                     print(f"[CAMERA TRANSITION]\n{best_gid}:\n{old_cam} / Track {old_info['track_id']} -> {camera_id} / Track {local_track_id}")
@@ -283,8 +367,51 @@ class GlobalIDManager:
             self.global_people[new_gid] = new_person
             self.local_to_global_map[key] = new_gid
 
-            print(f"[NEW PERSON]\n{camera_id} / Track {local_track_id} -> {new_gid}")
+            print(f"[OSNet REID NEW]\n{camera_id} / Track {local_track_id} -> Created {new_gid}")
             return new_gid
+
+    def compute_and_print_pairwise_similarity_matrix(self):
+        """
+        Computes and prints the full pairwise cosine similarity matrix across all currently active
+        Global Person records/tracks using OSNet embeddings. Labeled with camera + suspect name.
+        """
+        with self.lock:
+            active_gids = [gid for gid, p in sorted(self.global_people.items()) if p.running_embedding is not None]
+            if not active_gids:
+                print("[OSNet PAIRWISE MATRIX] No active Global Person records with embeddings.")
+                return None
+
+            labels = []
+            embeddings = []
+            for gid in active_gids:
+                p = self.global_people[gid]
+                cam_info = ", ".join([f"{cam}:#{t['track_id']}" for cam, t in p.tracks.items()])
+                s_name = p.suspect_name or "Unknown"
+                labels.append(f"{gid} ({s_name}) [{cam_info}]")
+                embeddings.append(p.running_embedding)
+
+            n = len(embeddings)
+            matrix = np.zeros((n, n), dtype=np.float32)
+
+            for i in range(n):
+                for j in range(n):
+                    matrix[i, j] = self.reid_extractor.compute_similarity(embeddings[i], embeddings[j])
+
+            print("\n" + "=" * 95)
+            print("OSNet REAL-TIME PAIRWISE COSINE SIMILARITY MATRIX (ACTIVE GLOBAL IDENTITIES)")
+            print("=" * 95)
+            col_header = f"{'Global Person Identity':<35} | " + " | ".join([f"{labels[k][:12]:^12}" for k in range(n)])
+            print(col_header)
+            print("-" * len(col_header))
+
+            for i in range(n):
+                row_str = f"{labels[i]:<35} | "
+                for j in range(n):
+                    row_str += f"{matrix[i, j]:^12.4f} | "
+                print(row_str)
+            print("=" * 95 + "\n")
+
+            return {"labels": labels, "matrix": matrix}
 
     def get_summary_analytics(self):
         """
@@ -308,6 +435,7 @@ class GlobalIDManager:
 
                     records.append({
                         "global_id": person.global_id,
+                        "suspect_name": person.suspect_name or "Unknown",
                         "first_seen": person.first_seen,
                         "last_seen": person.last_seen,
                         "status": "ACTIVE",
@@ -317,4 +445,5 @@ class GlobalIDManager:
             return {
                 "total_unique_global_people": len(records),
                 "records": records,
+                "suspect_to_global_map": dict(self.suspect_to_global_map)
             }
