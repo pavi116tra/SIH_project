@@ -254,16 +254,24 @@ class GlobalIDManager:
                     if (now_ts - person2.last_seen_ts) > self.retention_seconds or person2.running_embedding is None:
                         continue
 
+                    name1 = person1.suspect_name if (person1.suspect_name and person1.suspect_name != "Unknown") else None
+                    name2 = person2.suspect_name if (person2.suspect_name and person2.suspect_name != "Unknown") else None
+
+                    # HARD REJECTION: Never merge two DIFFERENT named suspects!
+                    if name1 and name2 and name1 != name2:
+                        print(f"[REID HARD BLOCK] appearance-similarity suggests match between {gid1} ('{name1}') and {gid2} ('{name2}') but suspect identities conflict — treating as different people")
+                        continue
+
+                    # AUTOMATIC SAME-SUSPECT MERGE: If both GIDs share the SAME named suspect, merge them instantly!
+                    if name1 and name2 and name1 == name2:
+                        target_g = min(gid1, gid2)
+                        src_g = max(gid1, gid2)
+                        self.merge_identities(src_g, target_g, similarity=1.0)
+                        merged_count += 1
+                        continue
+
                     sim = self.reid_extractor.compute_similarity(person1.running_embedding, person2.running_embedding)
                     if sim >= merge_threshold:
-                        name1 = person1.suspect_name if (person1.suspect_name and person1.suspect_name != "Unknown") else None
-                        name2 = person2.suspect_name if (person2.suspect_name and person2.suspect_name != "Unknown") else None
-
-                        # HARD REJECTION: Never merge two different named suspects!
-                        if name1 and name2 and name1 != name2:
-                            print(f"[REID HARD BLOCK] appearance-similarity suggests match ({sim:.2f}) between {gid1} ('{name1}') and {gid2} ('{name2}') but suspect identities conflict — treating as different people")
-                            continue
-
                         # If one is named, keep the named one as target
                         if name2 and not name1:
                             target_g = gid2
@@ -300,12 +308,13 @@ class GlobalIDManager:
 
             # --- PATH A: Confident Suspect Match Ground Truth (Face Recognition Anchored) ---
             if suspect_name and suspect_name != "Unknown":
+                prev_gid = self.local_to_global_map.get(key)
+
                 if suspect_name in self.suspect_to_global_map:
                     target_gid = self.suspect_to_global_map[suspect_name]
                     print(f"[SUSPECT ANCHOR MATCH] Camera={camera_id} Track={local_track_id} Suspect='{suspect_name}' -> GlobalID={target_gid}")
                 else:
                     # First time seeing this suspect anywhere: check if previous key had a temporary unknown ID
-                    prev_gid = self.local_to_global_map.get(key)
                     if prev_gid and prev_gid in self.global_people and not self.global_people[prev_gid].suspect_name:
                         target_gid = prev_gid
                     else:
@@ -313,6 +322,11 @@ class GlobalIDManager:
 
                     self.suspect_to_global_map[suspect_name] = target_gid
                     print(f"[SUSPECT ANCHOR NEW] Camera={camera_id} Track={local_track_id} Suspect='{suspect_name}' -> Created GlobalID={target_gid}")
+
+                # If key was previously assigned to a DIFFERENT temporary Global ID, merge prev_gid into target_gid!
+                if prev_gid and prev_gid != target_gid and prev_gid in self.global_people:
+                    print(f"[SUSPECT ANCHOR CONSOLIDATION] Merging temporary {prev_gid} into suspect-anchored {target_gid} for '{suspect_name}'")
+                    self.merge_identities(prev_gid, target_gid, similarity=1.0)
 
                 # Ensure GlobalPerson record exists & is anchored
                 if target_gid not in self.global_people:
