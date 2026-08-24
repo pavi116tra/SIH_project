@@ -1,6 +1,8 @@
 import os
 import sys
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Ensure virtual environment packages are discoverable by python and IDE language servers
 _venv_packages = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "venv", "Lib", "site-packages"))
 if os.path.exists(_venv_packages) and _venv_packages not in sys.path:

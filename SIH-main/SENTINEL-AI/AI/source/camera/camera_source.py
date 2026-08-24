@@ -98,6 +98,7 @@ class WebcamSource(CameraSource):
 
     def start(self):
         self.enabled = True
+        self.is_paused = False
         try:
             device_idx = int(self.source)
             if self.cap is None or not self.cap.isOpened():
@@ -189,6 +190,7 @@ class VideoFileSource(CameraSource):
 
     def start(self):
         self.enabled = True
+        self.is_paused = False
         resolved = self._resolve_video_path(self.source)
 
         if resolved:

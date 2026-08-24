@@ -605,6 +605,7 @@
     <script>
         function startStream(camId) {
             fetch('/api/cameras/' + camId + '/start', { method: 'POST' })
+                .then(() => fetch('/api/cameras/' + camId + '/resume', { method: 'POST' }))
                 .then(r => r.json())
                 .then(d => {
                     refreshImage(camId);
@@ -622,7 +623,11 @@
         }
 
         function pauseStream(camId) {
-            fetch('/api/cameras/' + camId + '/pause', { method: 'POST' })
+            const badge = document.getElementById('badge-' + camId);
+            const isPaused = badge && badge.innerText.includes('PAUSED');
+            const endpoint = isPaused ? '/resume' : '/pause';
+
+            fetch('/api/cameras/' + camId + endpoint, { method: 'POST' })
                 .then(r => r.json())
                 .then(d => {
                     pollCameraStatuses();
