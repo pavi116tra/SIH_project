@@ -3,7 +3,7 @@
 # Model Configuration
 model:
   detector_path: "yolov8s.pt"         # High-accuracy YOLOv8 Small detector weights
-  confidence_threshold: 0.45          # Optimal confidence threshold for high precision
+  confidence_threshold: 0.20          # Lowered threshold to detect close-up head/shoulder person views
   iou_threshold: 0.50                 # NMS IoU threshold
   device: "auto"                       # "cuda", "cpu", or "auto"
   img_size: 480                       # 480p inference resolution for high accuracy + fast FPS

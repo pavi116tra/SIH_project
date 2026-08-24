@@ -1055,7 +1055,7 @@ def camera_stream_worker(camera_id):
             try:
                 src_type = "live" if camera_id == "CAM01" else "file"
                 human_tracks, non_human_objects, stats = human_tracker_engine.process_frame(
-                    frame, camera_id=camera_id, source_type=src_type, suspect_map=track_suspect_map
+                    frame, camera_id=camera_id, source_type=src_type, suspect_map=track_suspect_map, faces=cached_faces
                 )
                 current_tracking_stats = stats
                 frame = surveillance_renderer.draw_annotations(frame, human_tracks, non_human_objects, stats)

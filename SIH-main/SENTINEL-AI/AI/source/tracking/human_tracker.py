@@ -118,7 +118,7 @@ class HumanTrackerEngine:
                 return yaml.safe_load(f)
         return {}
 
-    def process_frame(self, frame, camera_id="CAM01", source_type="file", suspect_map=None):
+    def process_frame(self, frame, camera_id="CAM01", source_type="file", suspect_map=None, faces=None):
         """
         Process a single image frame through detection, class filtering, camera-specific tracking,
         and Two-Level Global ID association (P001, P002...).
@@ -181,7 +181,7 @@ class HumanTrackerEngine:
                     class_name = str(det_names.get(cls_id, f"Class_{cls_id}")).title()
 
                     if cls_id == self.target_class_id:
-                        if score >= self.conf_thresh:
+                        if score >= 0.18:
                             human_detections.append({
                                 "bbox": xyxy,
                                 "score": score,
@@ -196,6 +196,31 @@ class HumanTrackerEngine:
                             "class_id": cls_id,
                             "class_name": class_name
                         })
+
+        # 1a. Fallback: If FaceNet detected faces on this frame, synthesize human body bounding boxes if YOLO missed them!
+        if faces:
+            h_f, w_f = frame.shape[:2]
+            for face_info in faces:
+                fx, fy, fw, fh = face_info["bbox"]
+                px1 = max(0, fx - int(fw * 0.8))
+                py1 = max(0, fy - int(fh * 0.4))
+                px2 = min(w_f, fx + fw + int(fw * 0.8))
+                py2 = min(h_f, fy + fh + int(fh * 3.5))
+
+                already_covered = False
+                for h_det in human_detections:
+                    hx1, hy1, hx2, hy2 = map(int, h_det["bbox"])
+                    if fx >= hx1 - 30 and (fx + fw) <= hx2 + 30 and fy >= hy1 - 30 and (fy + fh) <= hy2 + 30:
+                        already_covered = True
+                        break
+
+                if not already_covered:
+                    human_detections.append({
+                        "bbox": [px1, py1, px2, py2],
+                        "score": 0.88,
+                        "class_id": 0,
+                        "class_name": "Person"
+                    })
 
         # 1b. Zero-Shot CLIP Refinement for Animals, Birds, and Drones
         if self.zero_shot_classifier and self.zero_shot_classifier.is_ready and non_human_objects:
