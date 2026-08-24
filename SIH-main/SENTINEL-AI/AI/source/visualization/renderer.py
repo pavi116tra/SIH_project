@@ -105,12 +105,18 @@ class SurveillanceRenderer:
             score_pct = int(getattr(track, "score", 0.95) * 100)
             gid = getattr(track, "global_id", None)
             cam_id = getattr(track, "camera_id", "C1")
-            gid_str = f"GLOBAL ID: {gid}" if gid else "Resolving..."
-            label = f"{gid_str} | {cam_id}-Track #{local_id} | {score_pct}%"
+
+            if gid == "PENDING":
+                box_color = (0, 255, 255)  # Bright Yellow for PENDING / Identifying
+                label = f"GLOBAL ID: Identifying... | {cam_id}-Track #{local_id}"
+            else:
+                box_color = self.color_person
+                gid_str = f"GLOBAL ID: {gid}" if gid else "Resolving..."
+                label = f"{gid_str} | {cam_id}-Track #{local_id} | {score_pct}%"
 
             # Draw thick vibrant box
             cv2.rectangle(
-                canvas, (x1, y1), (x2, y2), self.color_person, 2, cv2.LINE_AA
+                canvas, (x1, y1), (x2, y2), box_color, 2, cv2.LINE_AA
             )
 
             # Top label box
@@ -121,7 +127,7 @@ class SurveillanceRenderer:
                 canvas,
                 (x1, max(0, y1 - h_lbl - 8)),
                 (x1 + w_lbl + 10, y1),
-                self.color_person,
+                box_color,
                 -1,
             )
             cv2.putText(

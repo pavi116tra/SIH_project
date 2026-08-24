@@ -41,7 +41,12 @@ tracker:
 global_id:
   enabled: true
   retention_minutes: 60               # Configurable temporal retention policy (15, 30, 60, 120 mins)
-  reid_match_threshold: 0.65          # Optimal cross-camera ReID threshold for linking unknown 3rd/4th persons across different camera angles
+  accept_threshold: 0.75              # Open-set ReID confident acceptance threshold
+  reject_threshold: 0.55              # Open-set ReID confident rejection / new ID threshold
+  merge_threshold: 0.85               # Stricter background merge threshold
+  max_prototypes: 8                   # Maximum diverse prototypes per Global ID
+  cooldown_seconds: 10                # New-ID cooldown immunity window before merge eligibility
+  max_pending_wait_seconds: 5.0       # Max wait time in uncertain zone before defaulting to new Global ID
   device: "auto"
 
 # Analytics & Counting Configuration

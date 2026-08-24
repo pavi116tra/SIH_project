@@ -62,7 +62,12 @@ class HumanTrackerEngine:
         global_cfg = self.config.get("global_id", {})
         self.global_id_manager = GlobalIDManager(
             retention_minutes=global_cfg.get("retention_minutes", 60),
-            reid_match_threshold=global_cfg.get("reid_match_threshold", 0.75),
+            accept_threshold=global_cfg.get("accept_threshold", 0.75),
+            reject_threshold=global_cfg.get("reject_threshold", 0.55),
+            merge_threshold=global_cfg.get("merge_threshold", 0.85),
+            max_prototypes=global_cfg.get("max_prototypes", 8),
+            cooldown_seconds=global_cfg.get("cooldown_seconds", 10.0),
+            max_pending_wait_seconds=global_cfg.get("max_pending_wait_seconds", 5.0),
             device=self.device,
         )
 
