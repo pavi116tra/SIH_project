@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Camera Grid - SENTINEL-AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='livemon.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .multicam-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .multicam-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .multicam-header h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2.2rem;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+
+        .multicam-header .accent {
+            color: #5b21b6;
+        }
+
+        .multicam-header p {
+            color: #64748b;
+            font-size: 1rem;
+        }
+
+        .mode-toggle-bar {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 2rem;
+        }
+
+        .toggle-btn {
+            padding: 10px 22px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-active {
+            background: #5b21b6;
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(91, 33, 182, 0.35);
+        }
+
+        .toggle-inactive {
+            background: #ffffff;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        .toggle-inactive:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 25px;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card i {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .stat-card h3 {
+            font-size: 0.95rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .multicam-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+            margin-bottom: 3rem;
+        }
+
+        @media (max-width: 992px) {
+            .multicam-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .cam-card {
+            background: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cam-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            background: #1e293b;
+            color: #ffffff;
+        }
+
+        .cam-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #f8fafc;
+        }
+
+        .cam-status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .status-online {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+
+        .status-offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+
+        .status-paused {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid #f59e0b;
+        }
+
+        .cam-feed-wrapper {
+            position: relative;
+            width: 100%;
+            height: 320px;
+            background: #090d16;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cam-feed-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .cam-feed-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .rec-dot {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .cam-btn-group {
+            display: flex;
+            gap: 10px;
+            padding: 1rem 1.25rem;
+            background: #f8fafc;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .cam-btn {
+            flex: 1;
+            padding: 9px 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .cam-btn-start { background: #10b981; color: #ffffff; }
+        .cam-btn-start:hover { background: #059669; }
+
+        .cam-btn-stop { background: #ef4444; color: #ffffff; }
+        .cam-btn-stop:hover { background: #dc2626; }
+
+        .cam-btn-pause { background: #f59e0b; color: #ffffff; }
+        .cam-btn-pause:hover { background: #d97706; }
+
+        .cam-btn-restart { background: #6366f1; color: #ffffff; }
+        .cam-btn-restart:hover { background: #4f46e5; }
+
+        /* Tree View Styling */
+        .tree-panel {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 3rem;
+        }
+
+        .tree-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f1f5f9;
+        }
+
+        .tree-panel-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.3rem;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tree-card {
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+
+        .tree-header {
+            padding: 1rem 1.25rem;
+            background: #1e293b;
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            transition: background 0.2s ease;
+        }
+
+        .tree-header:hover {
+            background: #334155;
+        }
+
+        .tree-gid-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tree-gid-tag {
+            background: #5b21b6;
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .tree-content {
+            padding: 1rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #ffffff;
+        }
+
+        .tree-node {
+            display: flex;
+            align-items: center;
+            padding: 10px 14px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            border-left: 4px solid #5b21b6;
+            gap: 15px;
+            font-size: 0.9rem;
+        }
+
+        .node-cam {
+            font-weight: 700;
+            color: #1e293b;
+            min-width: 80px;
+        }
+
+        .source-pill {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .source-pill.live {
+            background: rgba(16, 185, 129, 0.15);
+            color: #059669;
+            border: 1px solid #10b981;
+        }
+
+        .source-pill.file {
+            background: rgba(99, 102, 241, 0.15);
+            color: #4f46e5;
+            border: 1px solid #6366f1;
+        }
+
+        .node-track {
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .node-conf {
+            margin-left: auto;
+            font-weight: 700;
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 3px 10px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="glass-nav">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>SENTINEL-AI</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/landing">Home</a></li>
+                <li><a href="/live-mon">Live Monitoring</a></li>
+                <li><a href="/multicam" class="active">Multi-Cam Grid</a></li>
+                <li><a href="/new-crim">Insert Data</a></li>
+                <li><a href="/suspects">Database</a></li>
+                <li><a href="/vehicles">Vehicles</a></li>
+                <li><a href="/analyze-video">Analyze Video</a></li>
+                <li><a href="/contact">Contact</a></li>
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="multicam-container">
+            <div class="multicam-header">
+                <h1>Multi-Camera <span class="accent">Surveillance Grid</span></h1>
+                <p>Real-Time Quad Stream Surveillance with Level 2 ReID Person Association</p>
+            </div>
+
+            <div class="mode-toggle-bar">
+                <a href="/live-mon" class="toggle-btn toggle-inactive">
+                    <i class="fas fa-user"></i> Single Live Stream
+                </a>
+                <a href="/multicam" class="toggle-btn toggle-active">
+                    <i class="fas fa-th-large"></i> Multi-Camera Grid (4-Cam)
+                </a>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <i class="fas fa-video" style="color: #5b21b6;"></i>
+                    <h3>Configured Feeds</h3>
+                    <p id="stat-active-cams" style="font-size: 1.8rem; font-weight: 700; color: #1e293b; margin-top: 5px;">4 Active</p>
+                    <small style="color: #64748b;">CAM01, CAM02, CAM03, CAM04</small>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-users" style="color: #10b981;"></i>
+                    <h3>Visible Persons</h3>
+                    <p id="stat-visible-humans" style="font-size: 1.8rem; font-weight: 700; color: #10b981; margin-top: 5px;">0</p>
+                    <small style="color: #64748b;">Live tracked targets</small>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-id-badge" style="color: #f59e0b;"></i>
+                    <h3>Global Person IDs</h3>
+                    <p id="stat-global-people" style="font-size: 1.8rem; font-weight: 700; color: #f59e0b; margin-top: 5px;">0</p>
+                    <small style="color: #64748b;">Distinct Level 2 Identities</small>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-microchip" style="color: #06b6d4;"></i>
+                    <h3>System Engine</h3>
+                    <p id="stat-system-status" style="font-size: 1.1rem; font-weight: 600; color: #06b6d4; margin-top: 10px;">ACTIVE</p>
+                    <small style="color: #64748b;">YOLOv8 + FaceNet ReID</small>
+                </div>
+            </div>
+
+            <!-- 4 Camera Grid -->
+            <div class="multicam-grid">
+                <!-- CAM01 -->
+                <div class="cam-card">
+                    <div class="cam-header">
+                        <div class="cam-title">
+                            <i class="fas fa-video"></i> CAM01 - Primary Stream (Webcam)
+                        </div>
+                        <span class="cam-status-badge status-online" id="badge-CAM01">CAM01 ● ONLINE</span>
+                    </div>
+                    <div class="cam-feed-wrapper">
+                        <img src="{{ url_for('video_feed_cam', camera_id='CAM01') }}" class="cam-feed-img" id="img-CAM01" alt="CAM01 Feed">
+                        <div class="cam-feed-overlay">
+                            <div class="rec-dot"></div> REC
+                        </div>
+                    </div>
+                    <div class="cam-btn-group">
+                        <button class="cam-btn cam-btn-start" onclick="startStream('CAM01')"><i class="fas fa-play"></i> Start</button>
+                        <button class="cam-btn cam-btn-pause" onclick="pauseStream('CAM01')"><i class="fas fa-pause"></i> Pause</button>
+                        <button class="cam-btn cam-btn-stop" onclick="stopStream('CAM01')"><i class="fas fa-stop"></i> Stop</button>
+                    </div>
+                </div>
+
+                <!-- CAM02 -->
+                <div class="cam-card">
+                    <div class="cam-header">
+                        <div class="cam-title">
+                            <i class="fas fa-video"></i> CAM02 - Perimeter Zone
+                        </div>
+                        <span class="cam-status-badge status-online" id="badge-CAM02">CAM02 ● ONLINE</span>
+                    </div>
+                    <div class="cam-feed-wrapper">
+                        <img src="{{ url_for('video_feed_cam', camera_id='CAM02') }}" class="cam-feed-img" id="img-CAM02" alt="CAM02 Feed">
+                        <div class="cam-feed-overlay">
+                            <div class="rec-dot"></div> REC
+                        </div>
+                    </div>
+                    <div class="cam-btn-group">
+                        <button class="cam-btn cam-btn-start" onclick="startStream('CAM02')"><i class="fas fa-play"></i> Start</button>
+                        <button class="cam-btn cam-btn-pause" onclick="pauseStream('CAM02')"><i class="fas fa-pause"></i> Pause</button>
+                        <button class="cam-btn cam-btn-restart" onclick="restartStream('CAM02')"><i class="fas fa-redo"></i> Restart</button>
+                        <button class="cam-btn cam-btn-stop" onclick="stopStream('CAM02')"><i class="fas fa-stop"></i> Stop</button>
+                    </div>
+                </div>
+
+                <!-- CAM03 -->
+                <div class="cam-card">
+                    <div class="cam-header">
+                        <div class="cam-title">
+                            <i class="fas fa-video"></i> CAM03 - Entrance Corridor
+                        </div>
+                        <span class="cam-status-badge status-online" id="badge-CAM03">CAM03 ● ONLINE</span>
+                    </div>
+                    <div class="cam-feed-wrapper">
+                        <img src="{{ url_for('video_feed_cam', camera_id='CAM03') }}" class="cam-feed-img" id="img-CAM03" alt="CAM03 Feed">
+                        <div class="cam-feed-overlay">
+                            <div class="rec-dot"></div> REC
+                        </div>
+                    </div>
+                    <div class="cam-btn-group">
+                        <button class="cam-btn cam-btn-start" onclick="startStream('CAM03')"><i class="fas fa-play"></i> Start</button>
+                        <button class="cam-btn cam-btn-pause" onclick="pauseStream('CAM03')"><i class="fas fa-pause"></i> Pause</button>
+                        <button class="cam-btn cam-btn-restart" onclick="restartStream('CAM03')"><i class="fas fa-redo"></i> Restart</button>
+                        <button class="cam-btn cam-btn-stop" onclick="stopStream('CAM03')"><i class="fas fa-stop"></i> Stop</button>
+                    </div>
+                </div>
+
+                <!-- CAM04 -->
+                <div class="cam-card">
+                    <div class="cam-header">
+                        <div class="cam-title">
+                            <i class="fas fa-video"></i> CAM04 - Parking Gate (ALPR)
+                        </div>
+                        <span class="cam-status-badge status-online" id="badge-CAM04">CAM04 ● ONLINE</span>
+                    </div>
+                    <div class="cam-feed-wrapper">
+                        <img src="{{ url_for('video_feed_cam', camera_id='CAM04') }}" class="cam-feed-img" id="img-CAM04" alt="CAM04 Feed">
+                        <div class="cam-feed-overlay">
+                            <div class="rec-dot"></div> REC
+                        </div>
+                    </div>
+                    <div class="cam-btn-group">
+                        <button class="cam-btn cam-btn-start" onclick="startStream('CAM04')"><i class="fas fa-play"></i> Start</button>
+                        <button class="cam-btn cam-btn-pause" onclick="pauseStream('CAM04')"><i class="fas fa-pause"></i> Pause</button>
+                        <button class="cam-btn cam-btn-restart" onclick="restartStream('CAM04')"><i class="fas fa-redo"></i> Restart</button>
+                        <button class="cam-btn cam-btn-stop" onclick="stopStream('CAM04')"><i class="fas fa-stop"></i> Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Identity Tree Panel -->
+            <div class="tree-panel">
+                <div class="tree-panel-header">
+                    <div class="tree-panel-title">
+                        <i class="fas fa-sitemap" style="color: #5b21b6;"></i> Global Identity Association Hierarchy
+                    </div>
+                    <button class="cam-btn cam-btn-restart" style="flex: initial; padding: 8px 16px;" onclick="triggerManualMerge()">
+                        <i class="fas fa-compress-alt"></i> Run Identity Merge Pass
+                    </button>
+                </div>
+                <div id="tree-container">
+                    <div style="text-align: center; color: #64748b; padding: 2rem;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 10px;"></i>
+                        <p>Scanning active camera feeds for Global Person Associations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>SENTINEL-AI</span>
+            </div>
+            <div class="footer-links">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="/landing">Home</a></li>
+                    <li><a href="/live-mon">Live Monitoring</a></li>
+                    <li><a href="/multicam">Multi-Cam Grid</a></li>
+                    <li><a href="/new-crim">Insert Data</a></li>
+                    <li><a href="/suspects">Database</a></li>
+                    <li><a href="/vehicles">Vehicles</a></li>
+                    <li><a href="/analyze-video">Analyze Video</a></li>
+                    <li><a href="/contact">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-contact">
+                <h3>Contact Us</h3>
+                <p><i class="fas fa-map-marker-alt"></i> 123 Police Plaza, Chennai, TN</p>
+                <p><i class="fas fa-phone"></i> +91 1800-123-4567</p>
+                <p><i class="fas fa-envelope"></i> info@sentinel-ai.gov</p>
+            </div>
+            <div class="footer-social">
+                <h3>Connect With Us</h3>
+                <div class="social-icons">
+                    <a href="https://www.instagram.com/tech_trailblazers05?igsh=Z3Y3d2hjeDAycXg="><i class="fab fa-instagram"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 SENTINEL-AI. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        function startStream(camId) {
+            fetch('/api/cameras/' + camId + '/start', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    refreshImage(camId);
+                    pollCameraStatuses();
+                });
+        }
+
+        function stopStream(camId) {
+            fetch('/api/cameras/' + camId + '/stop', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    refreshImage(camId);
+                    pollCameraStatuses();
+                });
+        }
+
+        function pauseStream(camId) {
+            fetch('/api/cameras/' + camId + '/pause', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    pollCameraStatuses();
+                });
+        }
+
+        function restartStream(camId) {
+            fetch('/api/cameras/' + camId + '/restart', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    refreshImage(camId);
+                    pollCameraStatuses();
+                });
+        }
+
+        function refreshImage(camId) {
+            const img = document.getElementById('img-' + camId);
+            if (img) {
+                img.src = '/video_feed/' + camId + '?' + new Date().getTime();
+            }
+        }
+
+        function triggerManualMerge() {
+            fetch('/api/merge_identities', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    alert('Manual Merge Pass Executed: ' + d.merged_count + ' duplicate identities consolidated.');
+                    pollStats();
+                })
+                .catch(e => console.log('Merge error:', e));
+        }
+
+        function pollCameraStatuses() {
+            fetch('/api/cameras')
+                .then(r => r.json())
+                .then(cams => {
+                    if (Array.isArray(cams)) {
+                        cams.forEach(cam => {
+                            const badge = document.getElementById('badge-' + cam.camera_id);
+                            if (badge) {
+                                if (cam.is_paused) {
+                                    badge.className = "cam-status-badge status-paused";
+                                    badge.innerHTML = cam.camera_id + " ● PAUSED";
+                                } else if (cam.is_online) {
+                                    badge.className = "cam-status-badge status-online";
+                                    badge.innerHTML = cam.camera_id + " ● ONLINE";
+                                } else {
+                                    badge.className = "cam-status-badge status-offline";
+                                    badge.innerHTML = cam.camera_id + " ● OFFLINE";
+                                }
+                            }
+                        });
+                    }
+                })
+                .catch(e => console.log('Camera status error:', e));
+        }
+
+        function renderTree(records) {
+            const container = document.getElementById('tree-container');
+            if (!container) return;
+
+            if (!records || records.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 2rem;">
+                        <i class="fas fa-user-slash" style="font-size: 1.8rem; margin-bottom: 10px; color: #94a3b8;"></i>
+                        <p>No active Global Person identities currently tracked across camera streams.</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            records.forEach(rec => {
+                const camCount = rec.cameras ? rec.cameras.length : 0;
+                html += `
+                <div class="tree-card">
+                    <div class="tree-header" onclick="toggleTree('tree-${rec.global_id}')">
+                        <div class="tree-gid-info">
+                            <i class="fas fa-chevron-down" id="arrow-${rec.global_id}"></i>
+                            <span class="tree-gid-tag"><i class="fas fa-user-shield"></i> ${rec.global_id}</span>
+                            <span>Associated Across ${camCount} Camera Stream(s)</span>
+                        </div>
+                        <span style="font-size: 0.85rem; opacity: 0.8;">First Seen: ${rec.first_seen}</span>
+                    </div>
+                    <div class="tree-content" id="tree-${rec.global_id}">`;
+
+                if (rec.cameras && rec.cameras.length > 0) {
+                    rec.cameras.forEach(cam => {
+                        const confPct = Math.round((cam.confidence || 0) * 100);
+                        const srcType = (cam.source_type || 'file').toLowerCase();
+                        const srcBadgeClass = srcType === 'live' ? 'live' : 'file';
+                        const srcBadgeText = srcType === 'live' ? 'LIVE WEBCAM' : 'PRE-RECORDED FILE';
+
+                        html += `
+                        <div class="tree-node">
+                            <span class="node-cam"><i class="fas fa-video" style="color: #5b21b6;"></i> ${cam.camera}</span>
+                            <span class="source-pill ${srcBadgeClass}">${srcBadgeText}</span>
+                            <span class="node-track">Local Track #${cam.track_id}</span>
+                            <span class="node-conf">ReID Match: ${confPct}%</span>
+                        </div>`;
+                    });
+                }
+
+                html += `
+                    </div>
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function toggleTree(treeId) {
+            const el = document.getElementById(treeId);
+            if (el) {
+                if (el.style.display === 'none') {
+                    el.style.display = 'flex';
+                } else {
+                    el.style.display = 'none';
+                }
+            }
+        }
+
+        function pollStats() {
+            fetch('/api/global_person_analytics')
+                .then(r => r.json())
+                .then(data => {
+                    if (data) {
+                        if (document.getElementById('stat-global-people')) {
+                            document.getElementById('stat-global-people').innerText = data.total_unique_global_people || 0;
+                        }
+                        renderTree(data.records);
+                    }
+                })
+                .catch(e => console.log('Analytics error:', e));
+
+            fetch('/api/tracking_stats')
+                .then(r => r.json())
+                .then(data => {
+                    if (data && document.getElementById('stat-visible-humans')) {
+                        document.getElementById('stat-visible-humans').innerText = data.visible_human_count || 0;
+                    }
+                })
+                .catch(e => console.log('Stats error:', e));
+        }
+
+        // Mobile Menu Toggle
+        const hamburger = document.querySelector(".hamburger");
+        const navLinks = document.querySelector(".nav-links");
+        if (hamburger && navLinks) {
+            hamburger.addEventListener("click", () => {
+                hamburger.classList.toggle("active");
+                navLinks.classList.toggle("active");
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            ['CAM01', 'CAM02', 'CAM03', 'CAM04'].forEach(camId => {
+                refreshImage(camId);
+            });
+            pollCameraStatuses();
+            pollStats();
+        });
+
+        setInterval(pollStats, 1500);
+        setInterval(pollCameraStatuses, 2500);
+    </script>
+</body>
+</html>

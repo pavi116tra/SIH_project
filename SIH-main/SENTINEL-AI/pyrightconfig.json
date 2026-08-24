@@ -1,0 +1,10 @@
+{
+  "venvPath": "C:/Users/pavit/Downloads/SIH-main/SIH-main/SENTINEL-AI",
+  "venv": "venv",
+  "reportMissingImports": false,
+  "reportMissingTypeStubs": false,
+  "extraPaths": [
+    "C:/Users/pavit/Downloads/SIH-main/SIH-main/SENTINEL-AI/venv/Lib/site-packages",
+    "C:/Users/pavit/Downloads/SIH-main/SIH-main/SENTINEL-AI/AI/source"
+  ]
+}

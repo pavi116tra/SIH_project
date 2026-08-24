@@ -1,0 +1,93 @@
+# High-Accuracy Real-Time Human Detection & Tracking System Configuration
+
+# Model Configuration
+model:
+  detector_path: "yolov8s.pt"         # High-accuracy YOLOv8 Small detector weights
+  confidence_threshold: 0.45          # Optimal confidence threshold for high precision
+  iou_threshold: 0.50                 # NMS IoU threshold
+  device: "auto"                       # "cuda", "cpu", or "auto"
+  img_size: 480                       # 480p inference resolution for high accuracy + fast FPS
+  fp16: true                          # Half-precision FP16 GPU acceleration
+
+# Class Definitions (Living Organisms Only: Human + Animals + Birds)
+classes:
+  target_class_id: 0                  # Class ID for "Person"
+  target_class_name: "Person"
+  living_organism_ids: [0, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+  all_classes:
+    0: "Person"
+    14: "Bird"
+    15: "Cat"
+    16: "Dog"
+    17: "Horse"
+    18: "Sheep"
+    19: "Cow"
+    20: "Elephant"
+    21: "Bear"
+    22: "Zebra"
+    23: "Giraffe"
+
+# Tracking Configuration (ByteTrack / Kalman-IoU Algorithm)
+tracker:
+  track_high_thresh: 0.45             # Threshold for first association stage
+  track_low_thresh: 0.15              # Threshold for second association stage (low-conf detections)
+  new_track_thresh: 0.45              # Threshold to confirm a new track
+  match_thresh: 0.80                  # Max distance threshold for IoU matching
+  track_buffer: 30                    # Number of lost frames before terminating a track
+  confirm_frames: 1                   # Instant confirmation on first detection frame
+  reid_enabled: true                  # Enable appearance-based ReID matching
+
+# Global Identity Manager Configuration
+global_id:
+  enabled: true
+  retention_minutes: 60               # Configurable temporal retention policy (15, 30, 60, 120 mins)
+  reid_match_threshold: 0.55          # Optimal cosine similarity threshold for cross-camera ReID matching
+  device: "auto"
+
+# Analytics & Counting Configuration
+analytics:
+  max_trajectory_length: 30           # Number of frame positions stored in motion trail history
+  log_history: true                   # Keep track of unique human IDs throughout session
+
+# Camera Configurations (Webcam, Video Simulation, RTSP Streams)
+cameras:
+  - id: CAM01
+    name: Laptop Webcam
+    source_type: webcam
+    source: 0
+    enabled: true
+
+  - id: CAM02
+    name: Video Feed 1 (Corridor)
+    source_type: video
+    source: video/WIN_20260823_17_04_35_Pro.mp4
+    enabled: true
+
+  - id: CAM03
+    name: Video Feed 2 (Exit Lobby)
+    source_type: video
+    source: video/WIN_20260824_11_57_00_Pro.mp4
+    enabled: true
+
+  - id: CAM04
+    name: Video Feed 3 (Perimeter)
+    source_type: video
+    source: videos/camera4.mp4
+    enabled: true
+
+# Stream Parameters
+stream:
+  reconnect_attempts: 5               # Auto-reconnect retry count for RTSP streams
+  fps_limit: 0                        # 0 for unlimited / maximum speed
+
+# Visualization Settings
+visualization:
+  draw_boxes: true
+  draw_labels: true
+  draw_trajectories: true
+  draw_hud: true
+  person_box_color: [0, 255, 0]       # Green (BGR)
+  non_person_box_color: [255, 165, 0] # Cyan/Blue (BGR)
+  trajectory_color: [0, 215, 255]     # Yellow/Gold (BGR)
+  font_scale: 0.6
+  box_thickness: 2

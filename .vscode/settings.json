@@ -1,0 +1,14 @@
+{
+    "python.defaultInterpreterPath": "C:/Users/pavit/Downloads/SIH-main/SIH-main/SENTINEL-AI/venv/Scripts/python.exe",
+    "python.analysis.extraPaths": [
+        "C:/Users/pavit/Downloads/SIH-main/SIH-main/SENTINEL-AI/venv/Lib/site-packages",
+        "C:/Users/pavit/Downloads/SIH-main/SIH-main/SENTINEL-AI/AI/source"
+    ],
+    "python.autoComplete.extraPaths": [
+        "C:/Users/pavit/Downloads/SIH-main/SIH-main/SENTINEL-AI/venv/Lib/site-packages"
+    ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none"
+    },
+    "pyrefly.pythonPath": "C:/Users/pavit/Downloads/SIH-main/SIH-main/SENTINEL-AI/venv/Scripts/python.exe"
+}

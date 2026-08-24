@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Monitoring - SENTINEL-AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='/livemon.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav class="glass-nav">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>SENTINEL-AI</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/landing">Home</a></li>
+                <li><a href="/live-mon" class="active">Live Monitoring</a></li>
+                <li><a href="/multicam">Multi-Cam Grid</a></li>
+                <li><a href="/new-crim">Insert Data</a></li>
+                <li><a href="/suspects">Database</a></li>
+                <li><a href="/vehicles">Vehicles</a></li>
+                <li><a href="/analyze-video">Analyze Video</a></li>
+                <li><a href="/contact">Contact</a></li>
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </nav>
+    </header>
+
+    <div class="hero-section">
+        <h1>Real-Time <span class="accent">Criminal Detection</span></h1>
+        <p>Advanced AI-powered monitoring for enhanced public safety and security</p>
+    </div>
+    
+    <main>
+        <section class="monitoring-section">
+            <div class="container">
+                <div class="monitoring-info">
+                    <h2>Intelligent <span class="accent">Surveillance System</span></h2>
+                    <p>Our cutting-edge AI technology continuously analyzes video feeds to identify potential security threats and persons of interest in real-time.</p>
+                </div>
+                
+                <div class="camera-container">
+                    <div class="camera-feed" id="camera-feed">
+                        <img id="videoFeed" src="{{ url_for('video_feed') }}" alt="Live Surveillance Feed">
+                        <div class="timestamp" id="timestamp"></div>
+                        <div class="recording-indicator">
+                            <div class="recording-dot"></div>
+                            <span>REC</span>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="status-indicator">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Camera Online</span>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-start" id="start-camera">
+                        <i class="fas fa-play"></i> Start Camera
+                    </button>
+                    <button class="btn btn-pause" id="pause-camera" disabled>
+                        <i class="fas fa-pause"></i> Pause Camera
+                    </button>
+                    <button class="btn btn-stop" id="stop-camera" disabled style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; border: none; border-radius: 8px; padding: 12px 24px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                        <i class="fas fa-stop"></i> Stop Camera
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="stats-section">
+            <div class="container">
+                <div class="stats-grid">
+                    <div class="stat-card" style="border: 1px solid #00ff00; background: rgba(0, 255, 0, 0.05);">
+                        <i class="fas fa-users" style="color: #00ff00;"></i>
+                        <h3>Visible Humans</h3>
+                        <p id="stat-visible-humans" style="font-size: 2.2rem; font-weight: 700; color: #00ff00; margin: 10px 0;">0</p>
+                        <small style="color: #aaa;">Active tracks in current camera frame</small>
+                    </div>
+                    <div class="stat-card" style="border: 1px solid #ffd700; background: rgba(255, 215, 0, 0.05);">
+                        <i class="fas fa-id-badge" style="color: #ffd700;"></i>
+                        <h3>Global Person IDs</h3>
+                        <p id="stat-global-people" style="font-size: 2.2rem; font-weight: 700; color: #ffd700; margin: 10px 0;">0</p>
+                        <small style="color: #aaa;">Level 2 ReID Person Identities (P001, P002...)</small>
+                    </div>
+                    <div class="stat-card" style="border: 1px solid #00e5ff; background: rgba(0, 229, 255, 0.05);">
+                        <i class="fas fa-tachometer-alt" style="color: #00e5ff;"></i>
+                        <h3>System Performance</h3>
+                        <p id="stat-fps" style="font-size: 1.8rem; font-weight: 700; color: #00e5ff; margin: 10px 0;">0.0 FPS</p>
+                        <small id="stat-latency" style="color: #aaa;">Latency: 0.0 ms</small>
+                    </div>
+                    <div class="stat-card" style="border: 1px solid #ff4081; background: rgba(255, 64, 129, 0.05);">
+                        <i class="fas fa-layer-group" style="color: #ff4081;"></i>
+                        <h3>Two-Level ID Engine</h3>
+                        <p id="stat-system-status" style="font-size: 1.2rem; font-weight: 600; color: #ff4081; margin: 15px 0;">LOCAL TRACK + REID GLOBAL ID</p>
+                        <small style="color: #aaa;">60 Min Retention Memory Active</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <div class="alert-popup" id="alert-popup">
+        <i class="fas fa-exclamation-triangle"></i>
+        <div>
+            <p id="alert-message">Criminal Detected!</p>
+            <div class="alert-timestamp" id="alert-timestamp"></div>
+        </div>
+    </div>
+
+    <audio id="alert-sound">
+        <source src="{{ url_for('static', filename='alert.mp3') }}" type="audio/mp3">
+    </audio>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <div class="footer-logo">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>SENTINEL-AI</span>
+                </div>
+                <p>Advancing public safety through innovation</p>
+            </div>
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul class="footer-links">
+                    <li><a href="/landing">Home</a></li>
+                    <li><a href="/live-mon">Live Monitoring</a></li>
+                    <li><a href="/multicam">Multi-Cam Grid</a></li>
+                    <li><a href="/new-crim">Insert Data</a></li>
+                    <li><a href="/suspects">Database</a></li>
+                    <li><a href="/vehicles">Vehicles</a></li>
+                    <li><a href="/analyze-video">Analyze Video</a></li>
+                    <li><a href="/contact">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Contact Info</h3>
+                <div class="footer-contact">
+                    <p><i class="fas fa-map-marker-alt"></i> Sri Krishna College of Engineering and Technology <br> Kuniamuthur, Coimbatore</p>
+                    <p><i class="fas fa-phone"></i> 04254-09375</p>
+                    <p><i class="fas fa-envelope"></i> skcet@sentinel-ai.com</p>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h3>Connect With Us</h3>
+                <div class="social-icons">
+                    <a href="https://www.instagram.com/tech_trailblazers05?igsh=Z3Y3d2hjeDAycXg="><i class="fab fa-instagram"></i></a>
+                    <a href="https://github.com/PYEXPO25/T080_TECHTRAILBLAZERS"><i class="fab fa-github"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 SENTINEL-AI. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Update timestamp for video feed
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById("timestamp").textContent = now.toLocaleString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+        setInterval(updateTimestamp, 1000);
+
+        // Alert system - keep original functionality
+        let alertCooldown = false;
+
+        function fetchAlerts() {
+            if (alertCooldown) return; 
+
+            fetch('/get_alerts')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        let latestAlert = data[data.length - 1];
+                        
+                        document.getElementById("alert-message").innerText = 
+                            `ALERT! Suspect: ${latestAlert.name} Detected`;
+                        document.getElementById("alert-timestamp").innerText = latestAlert.time;
+                        document.getElementById("alert-popup").classList.add("show");
+
+                        let alertSound = document.getElementById("alert-sound");
+                        alertSound.play();
+
+                        alertCooldown = true; 
+
+                        setTimeout(() => {
+                            document.getElementById("alert-popup").classList.remove("show");
+                            alertCooldown = false; 
+                        }, 10000); 
+                    }
+                });
+        }
+
+        setInterval(fetchAlerts, 3000);
+
+        // Fetch real-time human tracking statistics
+        function fetchTrackingStats() {
+            fetch('/api/tracking_stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data) {
+                        if (document.getElementById("stat-visible-humans")) {
+                            document.getElementById("stat-visible-humans").innerText = data.visible_human_count || 0;
+                        }
+                        if (document.getElementById("stat-global-people")) {
+                            document.getElementById("stat-global-people").innerText = data.unique_global_people || 0;
+                        }
+                        if (document.getElementById("stat-fps")) {
+                            document.getElementById("stat-fps").innerText = (data.fps || 0.0) + " FPS";
+                        }
+                        if (document.getElementById("stat-latency")) {
+                            document.getElementById("stat-latency").innerText = "Latency: " + (data.latency_ms || 0.0) + " ms";
+                        }
+                        if (document.getElementById("stat-system-status")) {
+                            document.getElementById("stat-system-status").innerText = data.system_status || "TWO-LEVEL ID ACTIVE";
+                        }
+                    }
+                })
+                .catch(err => console.log("Tracking stats fetch error:", err));
+        }
+
+        setInterval(fetchTrackingStats, 1000);
+
+        // Camera controls functionality
+        document.getElementById("start-camera").addEventListener("click", function() {
+            const feed = document.getElementById("videoFeed");
+            feed.src = "{{ url_for('video_feed') }}?" + new Date().getTime();
+            feed.style.display = "block";
+            document.getElementById("status-indicator").classList.add("online");
+            document.querySelector(".status-text").textContent = "Camera Online";
+            document.getElementById("start-camera").disabled = true;
+            document.getElementById("pause-camera").disabled = false;
+            document.getElementById("stop-camera").disabled = false;
+        });
+
+        document.getElementById("pause-camera").addEventListener("click", function() {
+            const feed = document.getElementById("videoFeed");
+            feed.src = "";
+            feed.style.display = "none";
+            document.getElementById("status-indicator").classList.remove("online");
+            document.querySelector(".status-text").textContent = "Camera Paused";
+            document.getElementById("start-camera").disabled = false;
+            document.getElementById("pause-camera").disabled = true;
+            document.getElementById("stop-camera").disabled = false;
+        });
+
+        document.getElementById("stop-camera").addEventListener("click", function() {
+            const feed = document.getElementById("videoFeed");
+            feed.src = "";
+            feed.style.display = "none";
+            document.getElementById("status-indicator").classList.remove("online");
+            document.querySelector(".status-text").textContent = "Camera Stopped";
+            document.getElementById("start-camera").disabled = false;
+            document.getElementById("pause-camera").disabled = true;
+            document.getElementById("stop-camera").disabled = true;
+            
+            if (document.getElementById("stat-visible-humans")) {
+                document.getElementById("stat-visible-humans").innerText = "0";
+            }
+        });
+
+        // Mobile menu toggle
+        const hamburger = document.querySelector(".hamburger");
+        const navLinks = document.querySelector(".nav-links");
+
+        hamburger.addEventListener("click", () => {
+            hamburger.classList.toggle("active");
+            navLinks.classList.toggle("active");
+        });
+    </script>
+</body>
+</html>

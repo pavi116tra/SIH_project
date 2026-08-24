@@ -1,0 +1,29 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDEs
+.idea/
+.vscode/
+
+# Project Specific Data to Ignore
+AI/source/dataset_lp/
+AI/source/detected_faces/
+AI/source/detected_vehicles/
+AI/source/time_data/
+AI/source/uploads/
+AI/source/runs/
+
+# Keep models but ignore run logs
+!AI/source/runs/detect/license_plate_detector/weights/best.pt
