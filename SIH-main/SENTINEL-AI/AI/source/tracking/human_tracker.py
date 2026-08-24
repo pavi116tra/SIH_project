@@ -121,11 +121,11 @@ class HumanTrackerEngine:
         t0 = time.time()
         self.frame_count += 1
 
-        # 1. Run YOLO object detection with thread lock on PyTorch inference
+        # 1. Run YOLO object detection with thread lock on PyTorch inference (conf=0.18 to capture animals on phone screens & blurry crops)
         with self.lock:
             results = self.detector(
                 frame,
-                conf=self.conf_thresh,
+                conf=0.18,
                 iou=self.iou_thresh,
                 imgsz=self.img_size,
                 device=self.device,
@@ -176,14 +176,15 @@ class HumanTrackerEngine:
                     class_name = str(det_names.get(cls_id, f"Class_{cls_id}")).title()
 
                     if cls_id == self.target_class_id:
-                        human_detections.append({
-                            "bbox": xyxy,
-                            "score": score,
-                            "class_id": cls_id,
-                            "class_name": "Person"
-                        })
+                        if score >= self.conf_thresh:
+                            human_detections.append({
+                                "bbox": xyxy,
+                                "score": score,
+                                "class_id": cls_id,
+                                "class_name": "Person"
+                            })
                     else:
-                        # Non-human Organisms or Drones (Cat, Dog, Bird, Airplane, Kite, etc.)
+                        # Non-human Organisms or Drones (Cat, Dog, Bird, Bear/Panda, Airplane, Kite, etc.)
                         non_human_objects.append({
                             "bbox": xyxy,
                             "score": score,

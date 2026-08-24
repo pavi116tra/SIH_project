@@ -1075,9 +1075,18 @@ def camera_stream_worker(camera_id):
                     cv2.rectangle(frame, (x, max(0, y - 25)), (x + w_t + 10, y), (0, 0, 200), -1)
                     cv2.putText(frame, banner_text, (x + 5, max(18, y - 7)), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
                 else:
-                    # Cyan/Green face box
-                    cv2.rectangle(frame, (x, y), (x + width, y + height), (255, 255, 0), 2)
-                    cv2.putText(frame, "FACE", (x, max(15, y - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+                    # Only draw FACE box if not inside a non-human animal box
+                    is_animal_face = False
+                    for nh_obj in non_human_objects:
+                        nx1, ny1, nx2, ny2 = map(int, nh_obj["bbox"])
+                        if x >= nx1 - 15 and (x + width) <= nx2 + 15 and y >= ny1 - 15 and (y + height) <= ny2 + 15:
+                            is_animal_face = True
+                            break
+
+                    if not is_animal_face:
+                        # Cyan/Green face box
+                        cv2.rectangle(frame, (x, y), (x + width, y + height), (255, 255, 0), 2)
+                        cv2.putText(frame, "FACE", (x, max(15, y - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
 
             # Safely encode annotated frame to JPEG buffer
             if frame is not None and frame.size > 0:

@@ -31,6 +31,8 @@ class ZeroShotClassifier:
             self.is_ready = False
 
         self.default_animal_labels = [
+            "panda",
+            "giant panda",
             "lion",
             "tiger",
             "leopard",
@@ -42,6 +44,19 @@ class ZeroShotClassifier:
             "deer",
             "elephant",
             "bear",
+            "monkey",
+            "gorilla",
+            "chimpanzee",
+            "zebra",
+            "giraffe",
+            "hippopotamus",
+            "rhinoceros",
+            "kangaroo",
+            "koala",
+            "penguin",
+            "horse",
+            "cow",
+            "sheep",
         ]
 
         self.default_bird_drone_labels = [
