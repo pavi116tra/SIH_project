@@ -58,11 +58,15 @@ class SurveillanceRenderer:
             c_name = str(obj.get("class_name", "Organism")).title()
 
             # Distinct Color Coding & Prefixing
-            if "Bird" in c_name:
+            c_name_lower = c_name.lower()
+            if "drone" in c_name_lower or "quadcopter" in c_name_lower:
+                box_color = (255, 0, 255)  # Magenta/Purple for Drones
+                prefix = "DRONE"
+            elif any(b in c_name_lower for b in ["bird", "eagle", "hawk", "parrot", "crow", "sparrow"]):
                 box_color = (255, 255, 0)  # Cyan for Birds
                 prefix = "BIRD"
             else:
-                box_color = (0, 165, 255)  # Bright Orange for Animals (Dog, Cat, Horse, Cow, etc.)
+                box_color = (0, 165, 255)  # Bright Orange for Animals (Lion, Tiger, Bear, Dog, Cat, etc.)
                 prefix = "ANIMAL"
 
             label = f"{prefix}: {c_name} ({score_pct}%)"

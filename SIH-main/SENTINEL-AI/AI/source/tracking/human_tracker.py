@@ -66,6 +66,14 @@ class HumanTrackerEngine:
             device=self.device,
         )
 
+        # Initialize Zero-Shot CLIP Classifier for Fine-Grained Species & Drone Detection
+        try:
+            from model.zero_shot_classifier import ZeroShotClassifier
+            self.zero_shot_classifier = ZeroShotClassifier(device=self.device)
+        except Exception as z_err:
+            print(f"[HumanTracker] ZeroShotClassifier disabled: {z_err}")
+            self.zero_shot_classifier = None
+
         # Analytics tracking states
         self.unique_human_ids = set()
         self.previous_active_tracks = {}  # {camera_id: set_of_track_ids}
@@ -124,8 +132,8 @@ class HumanTrackerEngine:
                 verbose=False,
             )
 
-        # COCO class IDs for living organisms (Human, Bird, Cat, Dog, Horse, Sheep, Cow, Elephant, Bear, Zebra, Giraffe)
-        living_organism_ids = set(self.config.get("classes", {}).get("living_organism_ids", [0, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]))
+        # COCO class IDs for living organisms & candidate drone classes (Airplane, Bird, Cat, Dog, Horse, Sheep, Cow, Elephant, Bear, Zebra, Giraffe, Kite)
+        living_organism_ids = set(self.config.get("classes", {}).get("living_organism_ids", [0, 4, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 33]))
 
         human_detections = []
         non_human_objects = []
@@ -175,13 +183,29 @@ class HumanTrackerEngine:
                             "class_name": "Person"
                         })
                     else:
-                        # Living Organism (Cat, Dog, Bird, Cow, Horse, etc.)
+                        # Non-human Organisms or Drones (Cat, Dog, Bird, Airplane, Kite, etc.)
                         non_human_objects.append({
                             "bbox": xyxy,
                             "score": score,
                             "class_id": cls_id,
                             "class_name": class_name
                         })
+
+        # 1b. Zero-Shot CLIP Refinement for Animals, Birds, and Drones
+        if self.zero_shot_classifier and self.zero_shot_classifier.is_ready and non_human_objects:
+            h_f, w_f = frame.shape[:2]
+            for obj in non_human_objects:
+                x1, y1, x2, y2 = map(int, obj["bbox"])
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(w_f, x2), min(h_f, y2)
+                bgr_crop = frame[y1:y2, x1:x2]
+
+                if bgr_crop.size > 0 and bgr_crop.shape[0] >= 10 and bgr_crop.shape[1] >= 10:
+                    refined_label, confidence = self.zero_shot_classifier.classify_crop(bgr_crop)
+                    if refined_label and confidence > 0.25:
+                        obj["class_name"] = refined_label.title()
+                        obj["score"] = confidence
+                        obj["is_refined"] = True
 
         # 2. Pass human detections to camera's independent ByteTracker (Level 1 Local Tracking)
         tracker = self._get_tracker(camera_id)

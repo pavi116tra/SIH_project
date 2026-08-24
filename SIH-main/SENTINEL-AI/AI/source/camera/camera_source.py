@@ -133,18 +133,7 @@ class WebcamSource(CameraSource):
             self.start()
 
         if self.cap is not None and self.cap.isOpened():
-            # ZERO-LATENCY HARDWARE BUFFER FLUSH: Grab and discard any stale queued frames in OpenCV buffer
-            # Ensures WebcamSource ALWAYS returns the latest real-time frame from hardware
-            try:
-                for _ in range(4):
-                    if not self.cap.grab():
-                        break
-                ret, frame = self.cap.retrieve()
-                if not ret or frame is None:
-                    ret, frame = self.cap.read()
-            except Exception:
-                ret, frame = self.cap.read()
-
+            ret, frame = self.cap.read()
             if ret and frame is not None:
                 self.is_online = True
                 self.error_msg = ""
