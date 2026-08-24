@@ -51,18 +51,28 @@ class SurveillanceRenderer:
                     lineType=cv2.LINE_AA,
                 )
 
-        # 2. Draw Non-Human Objects (Vehicles, Birds, Animals, etc.)
+        # 2. Draw Non-Human Objects (Animals, Birds, etc.)
         for obj in non_human_objects:
             x1, y1, x2, y2 = map(int, obj["bbox"])
             score_pct = int(obj["score"] * 100)
-            label = f"{obj['class_name']} | {score_pct}%"
+            c_name = str(obj.get("class_name", "Organism")).title()
 
-            # Draw dashed/dotted or standard rectangle
+            # Distinct Color Coding & Prefixing
+            if "Bird" in c_name:
+                box_color = (255, 255, 0)  # Cyan for Birds
+                prefix = "BIRD"
+            else:
+                box_color = (0, 165, 255)  # Bright Orange for Animals (Dog, Cat, Horse, Cow, etc.)
+                prefix = "ANIMAL"
+
+            label = f"{prefix}: {c_name} ({score_pct}%)"
+
+            # Draw vibrant bounding box
             cv2.rectangle(
-                canvas, (x1, y1), (x2, y2), self.color_non_person, 2, cv2.LINE_AA
+                canvas, (x1, y1), (x2, y2), box_color, 2, cv2.LINE_AA
             )
 
-            # Label badge
+            # Top label badge
             (w_lbl, h_lbl), _ = cv2.getTextSize(
                 label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
             )
@@ -70,7 +80,7 @@ class SurveillanceRenderer:
                 canvas,
                 (x1, max(0, y1 - h_lbl - 6)),
                 (x1 + w_lbl + 8, y1),
-                self.color_non_person,
+                box_color,
                 -1,
             )
             cv2.putText(

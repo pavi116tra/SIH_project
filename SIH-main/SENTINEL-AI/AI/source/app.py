@@ -1430,5 +1430,70 @@ def analyze_video():
     return render_template('analyze_video.html', results=None)
 
 
+@app.route('/upload-video-stream/<camera_id>', methods=['POST'])
+def upload_video_stream(camera_id):
+    """
+    Endpoint for uploading a new video file to replace CAM02, CAM03, or CAM04 test videos.
+    Replaces video file on disk, stops existing stream, purges stale gallery tracks,
+    resets local track counter, and restarts playback seamlessly.
+    """
+    if camera_id == "CAM01":
+        return jsonify({"success": False, "message": "CAM01 (Webcam) is a live camera stream and cannot be replaced with a video file."}), 400
+
+    if camera_id not in ["CAM02", "CAM03", "CAM04"]:
+        return jsonify({"success": False, "message": f"Invalid camera ID: {camera_id}"}), 400
+
+    if 'video' not in request.files:
+        return jsonify({"success": False, "message": "No video file provided in upload request."}), 400
+
+    file = request.files['video']
+    if not file or file.filename == '':
+        return jsonify({"success": False, "message": "No selected video file."}), 400
+
+    allowed_exts = {'.mp4', '.avi', '.mov', '.mkv'}
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in allowed_exts:
+        return jsonify({"success": False, "message": f"Unsupported file format '{ext}'. Allowed: mp4, avi, mov, mkv."}), 400
+
+    try:
+        # 1. Stop current camera processing loop cleanly
+        camera_manager.stop_camera(camera_id)
+
+        # 2. Target replacement path in video/ directory
+        video_dir = os.path.join(BASE_DIR, "video")
+        os.makedirs(video_dir, exist_ok=True)
+        filename = f"{camera_id}_replaced{ext}"
+        new_video_path = os.path.join(video_dir, filename)
+
+        # Clean up previous file if exists to prevent accumulation
+        if os.path.exists(new_video_path):
+            try:
+                os.remove(new_video_path)
+            except Exception:
+                pass
+
+        file.save(new_video_path)
+
+        # 3. Reset local track IDs & expire stale Global Gallery tracks tied to this camera
+        human_tracker_engine.reset_camera_tracker(camera_id)
+        human_tracker_engine.global_id_manager.expire_camera_tracks(camera_id)
+
+        # 4. Update CameraSource object source path and restart
+        cam_source = camera_manager.sources.get(camera_id)
+        if cam_source:
+            cam_source.source = new_video_path
+            cam_source.start()
+
+        # 5. Restart background camera worker thread
+        ensure_camera_workers_running()
+
+        print(f"[Video Upload] {camera_id} video successfully replaced with: {new_video_path}")
+        return jsonify({"success": True, "message": f"{camera_id} video successfully updated!", "new_path": new_video_path}), 200
+
+    except Exception as e:
+        print(f"[Video Upload Error] {camera_id}: {e}")
+        return jsonify({"success": False, "message": f"Failed to update {camera_id} video: {str(e)}"}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=False, use_reloader=False, host="127.0.0.1", port=5000)

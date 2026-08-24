@@ -489,6 +489,8 @@
                     <div class="cam-btn-group">
                         <button class="cam-btn cam-btn-start" onclick="startStream('CAM02')"><i class="fas fa-play"></i> Start</button>
                         <button class="cam-btn cam-btn-pause" onclick="pauseStream('CAM02')"><i class="fas fa-pause"></i> Pause</button>
+                        <label for="upload-CAM02" class="cam-btn" style="background: #8b5cf6; color: #ffffff; cursor: pointer; margin: 0;"><i class="fas fa-upload"></i> Replace</label>
+                        <input type="file" id="upload-CAM02" accept=".mp4,.avi,.mov,.mkv" style="display: none;" onchange="uploadVideo('CAM02', this)">
                         <button class="cam-btn cam-btn-restart" onclick="restartStream('CAM02')"><i class="fas fa-redo"></i> Restart</button>
                         <button class="cam-btn cam-btn-stop" onclick="stopStream('CAM02')"><i class="fas fa-stop"></i> Stop</button>
                     </div>
@@ -511,6 +513,8 @@
                     <div class="cam-btn-group">
                         <button class="cam-btn cam-btn-start" onclick="startStream('CAM03')"><i class="fas fa-play"></i> Start</button>
                         <button class="cam-btn cam-btn-pause" onclick="pauseStream('CAM03')"><i class="fas fa-pause"></i> Pause</button>
+                        <label for="upload-CAM03" class="cam-btn" style="background: #8b5cf6; color: #ffffff; cursor: pointer; margin: 0;"><i class="fas fa-upload"></i> Replace</label>
+                        <input type="file" id="upload-CAM03" accept=".mp4,.avi,.mov,.mkv" style="display: none;" onchange="uploadVideo('CAM03', this)">
                         <button class="cam-btn cam-btn-restart" onclick="restartStream('CAM03')"><i class="fas fa-redo"></i> Restart</button>
                         <button class="cam-btn cam-btn-stop" onclick="stopStream('CAM03')"><i class="fas fa-stop"></i> Stop</button>
                     </div>
@@ -533,6 +537,8 @@
                     <div class="cam-btn-group">
                         <button class="cam-btn cam-btn-start" onclick="startStream('CAM04')"><i class="fas fa-play"></i> Start</button>
                         <button class="cam-btn cam-btn-pause" onclick="pauseStream('CAM04')"><i class="fas fa-pause"></i> Pause</button>
+                        <label for="upload-CAM04" class="cam-btn" style="background: #8b5cf6; color: #ffffff; cursor: pointer; margin: 0;"><i class="fas fa-upload"></i> Replace</label>
+                        <input type="file" id="upload-CAM04" accept=".mp4,.avi,.mov,.mkv" style="display: none;" onchange="uploadVideo('CAM04', this)">
                         <button class="cam-btn cam-btn-restart" onclick="restartStream('CAM04')"><i class="fas fa-redo"></i> Restart</button>
                         <button class="cam-btn cam-btn-stop" onclick="stopStream('CAM04')"><i class="fas fa-stop"></i> Stop</button>
                     </div>
@@ -736,6 +742,41 @@
                     el.style.display = 'none';
                 }
             }
+        }
+
+        function uploadVideo(cameraId, input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('video', file);
+
+            const statusBadge = document.getElementById(`badge-${cameraId}`);
+            if (statusBadge) {
+                statusBadge.innerText = `${cameraId} ● UPLOADING...`;
+                statusBadge.className = 'cam-status-badge status-paused';
+            }
+
+            fetch(`/upload-video-stream/${cameraId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`SUCCESS: ${data.message}`);
+                    restartStream(cameraId);
+                } else {
+                    alert(`UPLOAD ERROR: ${data.message}`);
+                }
+            })
+            .catch(err => {
+                console.error('Upload Error:', err);
+                alert(`Failed to upload video for ${cameraId}`);
+            })
+            .finally(() => {
+                input.value = '';
+                pollCameraStatuses();
+            });
         }
 
         function pollStats() {

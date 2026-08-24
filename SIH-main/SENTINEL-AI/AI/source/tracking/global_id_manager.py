@@ -139,6 +139,31 @@ class GlobalIDManager:
                     del self.track_buffers[k]
             print(f"[GlobalIDManager] Reset local track mappings for {camera_id} (Global IDs preserved).")
 
+    def expire_camera_tracks(self, camera_id):
+        """
+        Hook called when a video file for camera_id is replaced/uploaded.
+        Clears local track mappings for camera_id and purges any Global Person
+        records that were exclusively tied to the replaced video's tracks.
+        """
+        with self.lock:
+            keys_to_remove = [k for k in self.local_to_global_map if k[0] == camera_id]
+            for k in keys_to_remove:
+                del self.local_to_global_map[k]
+                if k in self.track_buffers:
+                    del self.track_buffers[k]
+
+            gids_to_purge = []
+            for gid, person in list(self.global_people.items()):
+                if camera_id in person.tracks:
+                    del person.tracks[camera_id]
+                if not person.tracks and not person.suspect_name:
+                    gids_to_purge.append(gid)
+
+            for gid in gids_to_purge:
+                del self.global_people[gid]
+
+            print(f"[GlobalIDManager] Expired stale tracks and purged {len(gids_to_purge)} obsolete Global IDs for replaced {camera_id}.")
+
     def _get_representative_embedding(self, camera_id, local_track_id, emb, window_seconds=2.0):
         """Accumulates OSNet embeddings over a ~2-second window per track and returns L2-normalized mean."""
         if emb is None:
