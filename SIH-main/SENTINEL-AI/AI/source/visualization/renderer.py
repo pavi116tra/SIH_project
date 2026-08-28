@@ -57,19 +57,14 @@ class SurveillanceRenderer:
             score_pct = int(obj["score"] * 100)
             c_name = str(obj.get("class_name", "Organism")).title()
 
-            # Distinct Color Coding & Prefixing
+            # Distinct Color Coding & Labeling
             c_name_lower = c_name.lower()
             if "drone" in c_name_lower or "quadcopter" in c_name_lower:
                 box_color = (255, 0, 255)  # Magenta/Purple for Drones
-                prefix = "DRONE"
-            elif any(b in c_name_lower for b in ["bird", "eagle", "hawk", "parrot", "crow", "sparrow"]):
-                box_color = (255, 255, 0)  # Cyan for Birds
-                prefix = "BIRD"
+                label = f"Drone: {score_pct}%"
             else:
-                box_color = (0, 165, 255)  # Bright Orange for Animals (Lion, Tiger, Bear, Dog, Cat, etc.)
-                prefix = "ANIMAL"
-
-            label = f"{prefix}: {c_name} ({score_pct}%)"
+                box_color = (0, 165, 255)  # Bright Orange for Animals
+                label = f"Animal: {score_pct}%"
 
             # Draw vibrant bounding box
             cv2.rectangle(
@@ -102,7 +97,7 @@ class SurveillanceRenderer:
         for track in human_tracks:
             x1, y1, x2, y2 = map(int, track.bbox)
             local_id = track.track_id
-            score_pct = int(getattr(track, "score", 0.95) * 100)
+            det_score_pct = int(getattr(track, "score", 0.95) * 100)
             gid = getattr(track, "global_id", None)
             cam_id = getattr(track, "camera_id", "C1")
 
@@ -112,7 +107,7 @@ class SurveillanceRenderer:
             else:
                 box_color = self.color_person
                 gid_str = f"GLOBAL ID: {gid}" if gid else "Resolving..."
-                label = f"{gid_str} | {cam_id}-Track #{local_id} | {score_pct}%"
+                label = f"{gid_str} | {cam_id}-Track #{local_id} | Det:{det_score_pct}%"
 
             # Draw thick vibrant box
             cv2.rectangle(

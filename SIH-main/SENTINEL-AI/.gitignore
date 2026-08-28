@@ -27,3 +27,7 @@ AI/source/runs/
 
 # Keep models but ignore run logs
 !AI/source/runs/detect/license_plate_detector/weights/best.pt
+
+# Ignore zip archives larger than git limits
+*.zip
+

@@ -62,9 +62,9 @@ class HumanTrackerEngine:
         global_cfg = self.config.get("global_id", {})
         self.global_id_manager = GlobalIDManager(
             retention_minutes=global_cfg.get("retention_minutes", 60),
-            accept_threshold=global_cfg.get("accept_threshold", 0.75),
+            accept_threshold=global_cfg.get("accept_threshold", 0.88),
             reject_threshold=global_cfg.get("reject_threshold", 0.55),
-            merge_threshold=global_cfg.get("merge_threshold", 0.85),
+            merge_threshold=global_cfg.get("merge_threshold", 0.88),
             max_prototypes=global_cfg.get("max_prototypes", 8),
             cooldown_seconds=global_cfg.get("cooldown_seconds", 10.0),
             max_pending_wait_seconds=global_cfg.get("max_pending_wait_seconds", 5.0),
@@ -189,38 +189,42 @@ class HumanTrackerEngine:
                                 "class_name": "Person"
                             })
                     else:
-                        # Non-human Organisms or Drones (Cat, Dog, Bird, Bear/Panda, Airplane, Kite, etc.)
+                        # Non-human Organisms or Drones
+                        c_name_lower = class_name.lower()
+                        display_name = "Drone" if ("drone" in c_name_lower or "quadcopter" in c_name_lower) else "Animal"
                         non_human_objects.append({
                             "bbox": xyxy,
                             "score": score,
                             "class_id": cls_id,
-                            "class_name": class_name
+                            "class_name": display_name
                         })
 
         # 1a. Fallback: If FaceNet detected faces on this frame, synthesize human body bounding boxes if YOLO missed them!
         if faces:
             h_f, w_f = frame.shape[:2]
             for face_info in faces:
-                fx, fy, fw, fh = face_info["bbox"]
-                px1 = max(0, fx - int(fw * 0.8))
-                py1 = max(0, fy - int(fh * 0.4))
-                px2 = min(w_f, fx + fw + int(fw * 0.8))
-                py2 = min(h_f, fy + fh + int(fh * 3.5))
+                if isinstance(face_info, dict) and "bbox" in face_info:
+                    fx, fy, fw, fh = face_info["bbox"]
+                    fcx, fcy = fx + fw // 2, fy + fh // 2
+                    px1 = max(0, fx - int(fw * 0.3))
+                    py1 = max(0, fy - int(fh * 0.2))
+                    px2 = min(w_f, fx + fw + int(fw * 0.3))
+                    py2 = min(h_f, fy + fh + int(fh * 2.2))
 
-                already_covered = False
-                for h_det in human_detections:
-                    hx1, hy1, hx2, hy2 = map(int, h_det["bbox"])
-                    if fx >= hx1 - 30 and (fx + fw) <= hx2 + 30 and fy >= hy1 - 30 and (fy + fh) <= hy2 + 30:
-                        already_covered = True
-                        break
+                    already_covered = False
+                    for h_det in human_detections:
+                        hx1, hy1, hx2, hy2 = map(int, h_det["bbox"])
+                        if hx1 <= fcx <= hx2 and hy1 <= fcy <= hy2:
+                            already_covered = True
+                            break
 
-                if not already_covered:
-                    human_detections.append({
-                        "bbox": [px1, py1, px2, py2],
-                        "score": 0.88,
-                        "class_id": 0,
-                        "class_name": "Person"
-                    })
+                    if not already_covered:
+                        human_detections.append({
+                            "bbox": [px1, py1, px2, py2],
+                            "score": 0.88,
+                            "class_id": 0,
+                            "class_name": "Person"
+                        })
 
         # 1b. Zero-Shot CLIP Refinement for Animals, Birds, and Drones
         if self.zero_shot_classifier and self.zero_shot_classifier.is_ready and non_human_objects:
@@ -234,7 +238,8 @@ class HumanTrackerEngine:
                 if bgr_crop.size > 0 and bgr_crop.shape[0] >= 10 and bgr_crop.shape[1] >= 10:
                     refined_label, confidence = self.zero_shot_classifier.classify_crop(bgr_crop)
                     if refined_label and confidence > 0.25:
-                        obj["class_name"] = refined_label.title()
+                        r_lower = refined_label.lower()
+                        obj["class_name"] = "Drone" if ("drone" in r_lower or "quadcopter" in r_lower) else "Animal"
                         obj["score"] = confidence
                         obj["is_refined"] = True
 
@@ -294,8 +299,8 @@ class HumanTrackerEngine:
             "latency_ms": round(self.last_latency_ms, 1),
             "visible_human_count": len(active_human_tracks),
             "unique_human_count": len(self.unique_human_ids),
-            "unique_global_people": global_summary["total_unique_global_people"],
-            "global_records": global_summary["records"],
+            "unique_global_people": global_summary.get("total_unique_global_people", global_summary.get("unique_human_count", 0)),
+            "global_records": global_summary.get("records", global_summary.get("hierarchy", [])),
             "non_human_count": len(non_human_objects),
             "system_status": "ONLINE - ACTIVE TRACKING"
         }

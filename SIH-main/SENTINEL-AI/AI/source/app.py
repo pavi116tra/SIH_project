@@ -1041,17 +1041,27 @@ def camera_stream_worker(camera_id):
             tracker_inst = human_tracker_engine.trackers.get(camera_id)
             if tracker_inst and cached_faces:
                 active_tracks = getattr(tracker_inst, 'tracked_stracks', getattr(tracker_inst, 'tracked_tracks', []))
-                for track in active_tracks:
-                    t_bbox = getattr(track, 'tlbr', getattr(track, 'bbox', None))
-                    if t_bbox is not None:
-                        tx1, ty1, tx2, ty2 = map(int, t_bbox)
-                        for face_info in cached_faces:
-                            if face_info["name"] != "Unknown":
-                                fx, fy, fw, fh = face_info["bbox"]
-                                if fx >= tx1 - 30 and fx <= tx2 + 30 and fy >= ty1 - 30 and fy <= ty2 + 30:
-                                    track_suspect_map[track.track_id] = face_info["name"]
+                for face_info in cached_faces:
+                    if face_info.get("name") and face_info["name"] != "Unknown":
+                        fx, fy, fw, fh = face_info["bbox"]
+                        fcx, fcy = fx + fw // 2, fy + fh // 2
+                        best_track_id = None
+                        best_dist = float("inf")
+                        for track in active_tracks:
+                            t_bbox = getattr(track, 'tlbr', getattr(track, 'bbox', None))
+                            if t_bbox is not None:
+                                tx1, ty1, tx2, ty2 = map(int, t_bbox)
+                                if tx1 <= fcx <= tx2 and ty1 <= fcy <= ty2:
+                                    tcx, tcy = (tx1 + tx2) // 2, (ty1 + ty2) // 2
+                                    dist = (fcx - tcx)**2 + (fcy - tcy)**2
+                                    if dist < best_dist:
+                                        best_dist = dist
+                                        best_track_id = track.track_id
+                        if best_track_id is not None:
+                            track_suspect_map[best_track_id] = face_info["name"]
 
-            # Run High-Accuracy Human Detection, ByteTrack Multi-Object Tracking & Trajectory Renderer
+            human_tracks = []
+            non_human_objects = []
             try:
                 src_type = "live" if camera_id == "CAM01" else "file"
                 human_tracks, non_human_objects, stats = human_tracker_engine.process_frame(
@@ -1151,6 +1161,24 @@ def api_merge_identities():
     merged_count = human_tracker_engine.global_id_manager.run_merge_pass(merge_threshold=0.75)
     analytics = human_tracker_engine.global_id_manager.get_summary_analytics()
     return jsonify({"success": True, "merged_count": merged_count, "analytics": analytics})
+
+@app.route('/api/debug_p001_gallery')
+def api_debug_p001_gallery():
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scratch", "p001_crops")
+    saved_crops = human_tracker_engine.global_id_manager.export_prototype_gallery_crops(output_dir)
+    analytics = human_tracker_engine.global_id_manager.get_summary_analytics()
+    return jsonify({
+        "saved_crops_count": len(saved_crops),
+        "output_dir": output_dir,
+        "saved_crops": saved_crops,
+        "analytics": analytics
+    })
+
+@app.route('/api/cleanup_gallery', methods=['POST'])
+def api_cleanup_gallery():
+    res = human_tracker_engine.global_id_manager.cleanup_gallery_outliers(target_gid="P001", min_cluster_sim=0.65)
+    analytics = human_tracker_engine.global_id_manager.get_summary_analytics()
+    return jsonify({"cleanup_result": res, "analytics": analytics})
 
 @app.route('/get_alerts')
 def get_alerts():
@@ -1507,4 +1535,6 @@ def upload_video_stream(camera_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=False, use_reloader=False, host="127.0.0.1", port=5000)
+    from werkzeug.serving import run_simple
+    print("[Sentinel-AI] Server starting on http://127.0.0.1:5000")
+    run_simple("0.0.0.0", 5000, app, use_reloader=False, threaded=True)

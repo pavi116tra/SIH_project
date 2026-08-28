@@ -41,9 +41,9 @@ tracker:
 global_id:
   enabled: true
   retention_minutes: 60               # Configurable temporal retention policy (15, 30, 60, 120 mins)
-  accept_threshold: 0.75              # Open-set ReID confident acceptance threshold
+  accept_threshold: 0.88              # Open-set ReID confident acceptance threshold
   reject_threshold: 0.55              # Open-set ReID confident rejection / new ID threshold
-  merge_threshold: 0.85               # Stricter background merge threshold
+  merge_threshold: 0.88               # Stricter background merge threshold
   max_prototypes: 8                   # Maximum diverse prototypes per Global ID
   cooldown_seconds: 10                # New-ID cooldown immunity window before merge eligibility
   max_pending_wait_seconds: 5.0       # Max wait time in uncertain zone before defaulting to new Global ID
@@ -65,13 +65,13 @@ cameras:
   - id: CAM02
     name: Video Feed 1 (Corridor)
     source_type: video
-    source: video/WIN_20260823_17_04_35_Pro.mp4
+    source: video/CAM02_replaced.mp4
     enabled: true
 
   - id: CAM03
     name: Video Feed 2 (Exit Lobby)
     source_type: video
-    source: video/WIN_20260824_11_57_00_Pro.mp4
+    source: video/CAM03_replaced.mp4
     enabled: true
 
   - id: CAM04

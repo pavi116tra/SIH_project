@@ -91,10 +91,22 @@ class CameraSource:
 
 
 class WebcamSource(CameraSource):
-    """Camera source for physical webcams (USB/laptop webcam)."""
+    """Camera source for physical webcams (USB/laptop webcam) with automatic video fallback."""
 
     def __init__(self, camera_id="CAM01", name="Laptop Webcam", source=0, enabled=True):
         super().__init__(camera_id, name, "webcam", source, enabled)
+        self.fallback_cap = None
+        self.resolved_fallback_path = None
+
+    def _get_fallback_video_path(self):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for folder in ["video", "videos", "uploads"]:
+            folder_path = os.path.join(base_dir, folder)
+            if os.path.exists(folder_path):
+                files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))]
+                if files:
+                    return os.path.join(folder_path, files[0])
+        return None
 
     def start(self):
         self.enabled = True
@@ -104,15 +116,27 @@ class WebcamSource(CameraSource):
             if self.cap is None or not self.cap.isOpened():
                 self.cap = cv2.VideoCapture(device_idx)
             if self.cap.isOpened():
-                self.is_online = True
-                self.error_msg = ""
-                print(f"[WebcamSource] {self.camera_id} ({self.name}) started successfully on device {device_idx}.")
-                return True
-            else:
-                self.is_online = False
-                self.error_msg = f"{self.camera_id} OFFLINE — webcam device {self.source} unavailable"
-                print(f"[WebcamSource] {self.camera_id} failed to open device {device_idx}.")
-                return False
+                ret, test_frame = self.cap.read()
+                if ret and test_frame is not None:
+                    self.is_online = True
+                    self.error_msg = ""
+                    print(f"[WebcamSource] {self.camera_id} ({self.name}) started successfully on device {device_idx}.")
+                    return True
+
+            # If physical webcam unavailable or failed test frame, use fallback video
+            print(f"[WebcamSource] {self.camera_id} physical device {self.source} unavailable/busy. Initializing video file fallback...")
+            self.resolved_fallback_path = self._get_fallback_video_path()
+            if self.resolved_fallback_path:
+                self.fallback_cap = cv2.VideoCapture(self.resolved_fallback_path)
+                if self.fallback_cap.isOpened():
+                    self.is_online = True
+                    self.error_msg = ""
+                    print(f"[WebcamSource] {self.camera_id} active on fallback video: {self.resolved_fallback_path}")
+                    return True
+
+            self.is_online = False
+            self.error_msg = f"{self.camera_id} OFFLINE — webcam device {self.source} unavailable"
+            return False
         except Exception as e:
             print(f"[WebcamSource] {self.camera_id} initialization error: {e}")
             self.is_online = False
@@ -130,9 +154,7 @@ class WebcamSource(CameraSource):
             time.sleep(0.04)
             return True, paused_frame
 
-        if self.cap is None or not self.cap.isOpened():
-            self.start()
-
+        # Try physical webcam first
         if self.cap is not None and self.cap.isOpened():
             ret, frame = self.cap.read()
             if ret and frame is not None:
@@ -141,7 +163,29 @@ class WebcamSource(CameraSource):
                 self.last_frame = frame.copy()
                 return True, frame
 
-        # Fallback error generator if webcam unavailable
+        # Fallback to video file if physical webcam not outputting frames
+        if self.fallback_cap is None and self.resolved_fallback_path is None:
+            self.resolved_fallback_path = self._get_fallback_video_path()
+            if self.resolved_fallback_path:
+                self.fallback_cap = cv2.VideoCapture(self.resolved_fallback_path)
+
+        if self.fallback_cap is not None:
+            if not self.fallback_cap.isOpened():
+                self.fallback_cap = cv2.VideoCapture(self.resolved_fallback_path)
+            ret, frame = self.fallback_cap.read()
+            if not ret:
+                # Re-open video to loop cleanly
+                self.fallback_cap.release()
+                self.fallback_cap = cv2.VideoCapture(self.resolved_fallback_path)
+                ret, frame = self.fallback_cap.read()
+
+            if ret and frame is not None:
+                self.is_online = True
+                self.error_msg = ""
+                self.last_frame = frame.copy()
+                return True, frame
+
+        # Fallback error frame if completely unavailable
         self.is_online = False
         if not self.error_msg:
             self.error_msg = f"{self.camera_id} OFFLINE — webcam stream disconnected"
@@ -155,13 +199,13 @@ class VideoFileSource(CameraSource):
         super().__init__(camera_id, name, "video", source, enabled)
         self.loop = loop
         self.frame_counter = 0
+        self.resolved_path = None
 
     def _resolve_video_path(self, target_path):
         """Locates valid video file across project directories."""
         str_path = str(target_path)
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
-        # Priority order of candidate file locations
         candidates = [
             str_path,
             os.path.join(base_dir, str_path),
@@ -174,13 +218,11 @@ class VideoFileSource(CameraSource):
             if cand and os.path.exists(cand) and os.path.isfile(cand):
                 return cand
 
-        # Fallback check: Look for any available video in video/ or uploads/
         for subfolder in ["video", "uploads", "videos"]:
             folder_path = os.path.join(base_dir, subfolder)
             if os.path.exists(folder_path):
                 files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))]
                 if files:
-                    # Pick a video file deterministically based on camera index
                     idx = int(''.join(filter(str.isdigit, self.camera_id)) or 1) % len(files)
                     chosen = os.path.join(folder_path, files[idx])
                     print(f"[VideoFileSource] {self.camera_id} fallback using available video: {chosen}")
@@ -191,22 +233,21 @@ class VideoFileSource(CameraSource):
     def start(self):
         self.enabled = True
         self.is_paused = False
-        resolved = self._resolve_video_path(self.source)
+        self.resolved_path = self._resolve_video_path(self.source)
 
-        if resolved:
+        if self.resolved_path:
             try:
                 if self.cap is not None:
                     self.cap.release()
-                self.cap = cv2.VideoCapture(resolved)
+                self.cap = cv2.VideoCapture(self.resolved_path)
                 if self.cap.isOpened():
                     self.is_online = True
                     self.error_msg = ""
-                    print(f"[VideoFileSource] {self.camera_id} ({self.name}) opened video file: {resolved}")
+                    print(f"[VideoFileSource] {self.camera_id} ({self.name}) opened video file: {self.resolved_path}")
                     return True
             except Exception as e:
-                print(f"[VideoFileSource] {self.camera_id} error opening {resolved}: {e}")
+                print(f"[VideoFileSource] {self.camera_id} error opening {self.resolved_path}: {e}")
 
-        # Source not found or could not be opened
         self.is_online = False
         self.error_msg = f"{self.camera_id} OFFLINE — video source not found"
         print(f"[VideoFileSource] {self.camera_id} OFFLINE — video file not found: {self.source}")
@@ -223,28 +264,36 @@ class VideoFileSource(CameraSource):
             time.sleep(0.04)
             return True, paused_frame
 
+        if self.resolved_path is None:
+            self.resolved_path = self._resolve_video_path(self.source)
+
+        if self.cap is None or not self.cap.isOpened():
+            self.start()
+
         if self.cap is not None and self.cap.isOpened():
             ret, frame = self.cap.read()
-            if ret:
+            if ret and frame is not None:
                 self.is_online = True
                 self.error_msg = ""
                 self.last_frame = frame.copy()
                 return True, frame
-            elif self.loop:
-                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            elif self.loop and self.resolved_path:
+                # Re-open video capture object for 100% reliable seamless video looping
+                self.cap.release()
+                self.cap = cv2.VideoCapture(self.resolved_path)
                 if self.on_reset_callback:
                     try:
                         self.on_reset_callback(self.camera_id)
                     except Exception as e:
                         print(f"[VideoFileSource] Reset callback error: {e}")
                 ret, frame = self.cap.read()
-                if ret:
+                if ret and frame is not None:
                     self.is_online = True
                     self.error_msg = ""
                     self.last_frame = frame.copy()
                     return True, frame
 
-        # If file missing or stream failed, show explicit red error frame
+        # If file missing or stream failed, show explicit status frame
         self.is_online = False
         if not self.error_msg:
             self.error_msg = f"{self.camera_id} OFFLINE — video source not found"

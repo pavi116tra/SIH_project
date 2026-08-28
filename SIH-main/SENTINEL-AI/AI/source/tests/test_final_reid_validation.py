@@ -49,7 +49,7 @@ def test_final_reid_validation():
     print("=" * 95)
 
     # Initialize GlobalIDManager with tuned MATCH_THRESHOLD = 0.88
-    gid_mgr = GlobalIDManager(reid_match_threshold=0.88, device="cpu", auto_merge_interval=10.0)
+    gid_mgr = GlobalIDManager(reid_match_threshold=0.88, device="cpu", auto_merge_interval=10.0, max_pending_wait_seconds=0.0)
 
     # 1. Create Crops for all tracks across 4 cameras
     # Prakalya (CAM01 Track 1 & CAM03 Track 26) - Red Top

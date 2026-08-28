@@ -1,0 +1,104 @@
+{
+    "train": [
+        {
+            "path": "data\\Fight\\rwf2000_0021_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0006_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0016_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0005_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0007_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0004_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0018_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0027_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0003_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0013_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0034_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0036_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0020_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0014_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0010_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0017_Fight.avi",
+            "label": "Fight"
+        }
+    ],
+    "val": [
+        {
+            "path": "data\\Fight\\rwf2000_0028_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0011_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0025_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0037_Fight.avi",
+            "label": "Fight"
+        }
+    ],
+    "test": [
+        {
+            "path": "data\\Fight\\rwf2000_0029_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0019_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0015_Fight.avi",
+            "label": "Fight"
+        },
+        {
+            "path": "data\\Fight\\rwf2000_0012_Fight.avi",
+            "label": "Fight"
+        }
+    ]
+}

@@ -1,0 +1,32 @@
+[
+    {
+        "camera_id": "UPLOAD_ANALYZER",
+        "timestamp": "2026-08-27 22:14:18",
+        "confidence": 0.6889,
+        "person_ids": [
+            1,
+            2
+        ],
+        "snapshot_path": "alerts/snapshots\\alert_UPLOAD_ANALYZER_20260827_221418_526.jpg"
+    },
+    {
+        "camera_id": "DEEP_THREAT_ANALYZER",
+        "timestamp": "2026-08-27 22:20:18",
+        "confidence": 1.0,
+        "person_ids": [
+            1,
+            2
+        ],
+        "snapshot_path": "alerts/snapshots\\alert_DEEP_THREAT_ANALYZER_20260827_222018_214.jpg"
+    },
+    {
+        "camera_id": "DEEP_THREAT_ANALYZER",
+        "timestamp": "2026-08-27 22:29:07",
+        "confidence": 0.6809,
+        "person_ids": [
+            1,
+            2
+        ],
+        "snapshot_path": "alerts/snapshots\\alert_DEEP_THREAT_ANALYZER_20260827_222907_761.jpg"
+    }
+]

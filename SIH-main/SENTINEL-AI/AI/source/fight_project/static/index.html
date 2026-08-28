@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL AI — Deep Multimodal Threat & Weapon Detection System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-card: rgba(22, 28, 45, 0.75);
+            --bg-card-hover: rgba(30, 39, 61, 0.85);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-red: #ff3b5c;
+            --accent-purple: #9c27b0;
+            --accent-purple-glow: rgba(156, 39, 176, 0.35);
+            --accent-red-glow: rgba(255, 59, 92, 0.35);
+            --accent-green: #00e676;
+            --accent-green-glow: rgba(0, 230, 118, 0.3);
+            --accent-orange: #ff9800;
+            --accent-blue: #3b82f6;
+            --text-main: #f3f4f6;
+            --text-sub: #9ca3af;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            background: rgba(11, 15, 25, 0.95);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--accent-red), var(--accent-purple));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            box-shadow: 0 0 15px var(--accent-purple-glow);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(156, 39, 176, 0.15);
+            border: 1px solid rgba(156, 39, 176, 0.4);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #e1bee7;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(0, 230, 118, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 1.5rem 0 0 0;
+            padding: 0 2rem;
+        }
+
+        .tab-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-sub);
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn.active, .tab-btn:hover {
+            background: linear-gradient(135deg, rgba(255, 59, 92, 0.2), rgba(156, 39, 176, 0.2));
+            border-color: var(--accent-purple);
+            color: var(--text-main);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        main {
+            flex: 1;
+            padding: 1.5rem 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+        }
+
+        .card-header {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .upload-box {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .upload-box:hover {
+            border-color: var(--accent-purple);
+            background: rgba(156, 39, 176, 0.05);
+        }
+
+        .upload-box i {
+            font-size: 3rem;
+            color: var(--accent-purple);
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-red));
+            color: #fff;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px var(--accent-purple-glow);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--accent-purple-glow);
+        }
+
+        .video-player-container {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 16/9;
+            position: relative;
+        }
+
+        video, img.live-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .timeline-list {
+            max-height: 520px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-purple) transparent;
+        }
+
+        .alert-item {
+            background: rgba(255, 59, 92, 0.12);
+            border-left: 4px solid var(--accent-red);
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .alert-item.critical {
+            background: rgba(156, 39, 176, 0.2);
+            border-left-color: var(--accent-purple);
+        }
+
+        .alert-item.normal {
+            background: rgba(0, 230, 118, 0.08);
+            border-left-color: var(--accent-green);
+        }
+
+        .alert-item.suspicious {
+            background: rgba(255, 152, 0, 0.12);
+            border-left-color: var(--accent-orange);
+        }
+
+        .alert-time {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .alert-conf {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+
+        .weapon-badge {
+            background: rgba(156, 39, 176, 0.3);
+            border: 1px solid var(--accent-purple);
+            color: #f3e5f5;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .form-control {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            padding: 10px 16px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--accent-purple);
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto;
+        }
+
+        .error-banner {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            border-radius: 10px;
+            padding: 1rem;
+            color: #fca5a5;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-gun"></i></div>
+            <span>SENTINEL AI <span style="font-weight:300; font-size: 0.9rem; color:var(--text-sub);">| Deep Weapon & Fight Detection Engine</span></span>
+        </div>
+        <div class="status-badge">
+            <div class="pulse-dot"></div>
+            <span>Weapon Detection & Sensor Fusion Active</span>
+        </div>
+    </header>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('upload')"><i class="fa-solid fa-file-video"></i> Deep Video Analyzer</button>
+        <button class="tab-btn" onclick="switchTab('live')"><i class="fa-solid fa-video"></i> Live Feed & Weapon Monitor</button>
+        <button class="tab-btn" onclick="switchTab('history')"><i class="fa-solid fa-clock-rotate-left"></i> Incident Evidence Database</button>
+    </div>
+
+    <main>
+        <!-- Mode 1: Deep Video Upload Analyzer -->
+        <div id="tab-upload" class="tab-content active">
+            <div class="grid-layout">
+                <div class="card">
+                    <div class="card-header">
+                        <span><i class="fa-solid fa-cloud-arrow-up"></i> Upload Video Clip for Deep Frame Analysis</span>
+                        <span style="font-size: 0.85rem; color: var(--text-sub);">Detects Knives, Guns, Explosive Flashes, Motion & Altercations</span>
+                    </div>
+
+                    <div id="drop-zone" class="upload-box" onclick="document.getElementById('video-input').click()">
+                        <i class="fa-solid fa-shield-cat"></i>
+                        <h3 style="margin-bottom: 8px;">Select Video File for Deep Threat Analysis</h3>
+                        <p style="color: var(--text-sub); font-size: 0.9rem;">Runs Weapon Detector + X3D-S + ResNet18 + Optical Flow + Muzzle Flash Check</p>
+                        <input type="file" id="video-input" accept="video/*" style="display: none;" onchange="handleFileSelect(event)">
+                    </div>
+
+                    <div id="loading-spinner" style="display: none; text-align: center; margin: 2rem 0;">
+                        <div class="loader"></div>
+                        <p style="color: var(--text-sub); font-size: 0.95rem;">Performing Deep Frame-by-Frame Threat & Weapon Analysis...</p>
+                    </div>
+
+                    <div id="error-banner" class="error-banner">
+                        <strong id="error-title"><i class="fa-solid fa-triangle-exclamation"></i> Analysis Error</strong>
+                        <p id="error-message" style="margin-top: 4px; font-size: 0.9rem;"></p>
+                    </div>
+
+                    <div id="player-wrapper" class="video-player-container" style="display: none; margin-top: 1rem;">
+                        <video id="annotated-player" controls autoplay></video>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span><i class="fa-solid fa-skull-crossbones"></i> Deep Threat Timeline</span>
+                        <span id="alert-badge-count" style="background: var(--accent-purple); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem;">Multi-Sensor Fusion</span>
+                    </div>
+                    <div id="timeline-container" class="timeline-list">
+                        <p style="color: var(--text-sub); font-size: 0.9rem; text-align: center; padding: 2rem 0;">Upload a video to inspect deep weapon & fight timeline.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode 2: Live Feed & Weapon Monitor -->
+        <div id="tab-live" class="tab-content">
+            <div class="grid-layout">
+                <div class="card">
+                    <div class="card-header">
+                        <span><i class="fa-solid fa-tower-broadcast"></i> Live Feed Monitor (Weapon + Fight HUD)</span>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" id="rtsp-url-input" class="form-control" placeholder="RTSP Stream URL (rtsp://...) or webcam index (0)">
+                        <button class="btn-primary" onclick="startLiveStream()"><i class="fa-solid fa-play"></i> Connect Feed</button>
+                    </div>
+
+                    <div class="video-player-container">
+                        <img id="live-stream-feed" class="live-feed" src="" alt="Click 'Connect Feed' to view live camera stream" style="background:#050811;">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span><i class="fa-solid fa-bell"></i> Real-Time Weapon & Threat Alerts</span>
+                    </div>
+                    <div id="live-alerts-container" class="timeline-list">
+                        <p style="color: var(--text-sub); font-size: 0.9rem; text-align: center; padding: 2rem 0;">Live alerts will trigger for detected weapons or physical altercations.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode 3: Evidence Database -->
+        <div id="tab-history" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fa-solid fa-database"></i> Incident Evidence Log</span>
+                    <button class="btn-primary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="loadAlertHistory()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+                </div>
+                <div id="history-list" class="timeline-list">
+                    <p style="color: var(--text-sub); font-size: 0.9rem; text-align: center; padding: 2rem 0;">Click refresh to load recorded SQLite incident evidence.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = window.location.protocol.startsWith('http') ? '' : 'http://localhost:8000';
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            if (tabId === 'history') {
+                loadAlertHistory();
+            }
+        }
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('drop-zone').style.display = 'none';
+            document.getElementById('loading-spinner').style.display = 'block';
+            document.getElementById('player-wrapper').style.display = 'none';
+            document.getElementById('error-banner').style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('threshold', 0.60);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/upload-video`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                document.getElementById('loading-spinner').style.display = 'none';
+
+                if (response.ok && data.status === 'success') {
+                    const player = document.getElementById('annotated-player');
+                    player.src = data.annotated_video_url.startsWith('http') ? data.annotated_video_url : `${API_BASE}${data.annotated_video_url}`;
+                    document.getElementById('player-wrapper').style.display = 'block';
+
+                    renderTimeline(data);
+                } else {
+                    showError(data.detail || 'Video threat analysis failed.');
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading-spinner').style.display = 'none';
+                showError('Failed to connect to FastAPI backend server: ' + err.message);
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('drop-zone').style.display = 'block';
+            const banner = document.getElementById('error-banner');
+            document.getElementById('error-message').innerText = msg;
+            banner.style.display = 'block';
+        }
+
+        function renderTimeline(data) {
+            const container = document.getElementById('timeline-container');
+            container.innerHTML = '';
+
+            const overallThreat = data.overall_threat_level;
+            const maxConf = data.max_confidence;
+            const spans = data.threat_spans || [];
+
+            // Main Threat Summary Card
+            const mainItem = document.createElement('div');
+            let itemClass = 'alert-item normal';
+            let iconClass = 'fa-solid fa-check-circle';
+            let iconColor = 'var(--accent-green)';
+
+            if (overallThreat === 'CRITICAL WEAPON THREAT') {
+                itemClass = 'alert-item critical';
+                iconClass = 'fa-solid fa-gun';
+                iconColor = 'var(--accent-purple)';
+            } else if (overallThreat === 'PHYSICAL ALTERCATION DETECTED') {
+                itemClass = 'alert-item';
+                iconClass = 'fa-solid fa-hand-fist';
+                iconColor = 'var(--accent-red)';
+            } else if (overallThreat === 'SUSPICIOUS ALTERCATION') {
+                itemClass = 'alert-item suspicious';
+                iconClass = 'fa-solid fa-triangle-exclamation';
+                iconColor = 'var(--accent-orange)';
+            }
+
+            mainItem.className = itemClass;
+            mainItem.innerHTML = `
+                <div>
+                    <div class="alert-time"><i class="${iconClass}" style="color:${iconColor}"></i> ${overallThreat}</div>
+                    <div class="alert-conf">Max Multimodal Score: ${(maxConf * 100).toFixed(1)}% | Video Duration: ${data.video_duration_sec}s</div>
+                </div>
+            `;
+            container.appendChild(mainItem);
+
+            // Specific Threat Spans
+            if (spans.length > 0) {
+                spans.forEach(span => {
+                    const spanItem = document.createElement('div');
+                    spanItem.className = span.threat_level === 'CRITICAL WEAPON THREAT' ? 'alert-item critical' : 'alert-item';
+                    
+                    let weaponHtml = '';
+                    if (span.weapons && span.weapons.length > 0) {
+                        span.weapons.forEach(w => {
+                            weaponHtml += `<div class="weapon-badge"><i class="fa-solid fa-triangle-exclamation"></i> ${w.class_name} (${(w.conf*100).toFixed(0)}%)</div> `;
+                        });
+                    }
+
+                    spanItem.innerHTML = `
+                        <div>
+                            <div class="alert-time"><i class="fa-solid fa-clock"></i> ${span.threat_level}: ${span.start_sec}s – ${span.end_sec}s</div>
+                            <div class="alert-conf">Peak Threat Score: ${(span.max_score * 100).toFixed(1)}%</div>
+                            ${weaponHtml}
+                        </div>
+                    `;
+                    container.appendChild(spanItem);
+                });
+            }
+        }
+
+        function startLiveStream() {
+            const rtspUrl = document.getElementById('rtsp-url-input').value.trim() || "0";
+            const imgFeed = document.getElementById('live-stream-feed');
+            imgFeed.src = `${API_BASE}/api/live-stream?rtsp_url=${encodeURIComponent(rtspUrl)}`;
+        }
+
+        async function loadAlertHistory() {
+            try {
+                const res = await fetch(`${API_BASE}/api/alerts`);
+                const data = await res.json();
+                const container = document.getElementById('history-list');
+                container.innerHTML = '';
+
+                if (!data.alerts || data.alerts.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-sub); text-align: center;">No recorded threat alerts in SQLite database.</p>';
+                    return;
+                }
+
+                data.alerts.forEach(al => {
+                    const item = document.createElement('div');
+                    item.className = 'alert-item critical';
+                    const snapUrl = al.snapshot_path.startsWith('http') ? al.snapshot_path : `${API_BASE}/${al.snapshot_path}`;
+                    item.innerHTML = `
+                        <div>
+                            <div class="alert-time"><i class="fa-solid fa-camera" style="color:var(--accent-purple)"></i> Source: ${al.camera_id} | ${al.timestamp}</div>
+                            <div class="alert-conf">Threat Score: ${(al.confidence * 100).toFixed(1)}% | Persons: ${al.person_ids}</div>
+                        </div>
+                        <a href="${snapUrl}" target="_blank" style="color:var(--accent-blue); text-decoration:none; font-size:0.85rem;"><i class="fa-solid fa-image"></i> Evidence Snapshot</a>
+                    `;
+                    container.appendChild(item);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>
