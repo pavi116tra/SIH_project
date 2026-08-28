@@ -125,19 +125,22 @@ async def analyze_video_upload(file: UploadFile = File(...), threshold: float = 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     writer = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
 
-    # 2. Frame-by-Frame Render with Weapon Bounding Boxes & HUD Header
-    results = pipeline.yolo(all_frames, classes=[0], verbose=False)
+    # 2. Frame-by-Frame Render with Weapon Bounding Boxes & Video Annotator HUD
+    per_frame_boxes = []
+    for frame in all_frames:
+        yolo_res = pipeline.yolo(frame, classes=[0], verbose=False)
+        p_boxes = []
+        if yolo_res and len(yolo_res) > 0 and yolo_res[0].boxes is not None:
+            for b in yolo_res[0].boxes:
+                coords = b.xyxy[0].cpu().numpy()
+                x1, y1, x2, y2 = int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])
+                p_boxes.append([x1, y1, x2, y2])
+        per_frame_boxes.append(p_boxes)
 
     for idx, frame in enumerate(all_frames):
         ann_frame = frame.copy()
         t_level = frame_threat_status[idx] if idx < len(frame_threat_status) else "NORMAL"
-
-        p_boxes = []
-        if idx < len(results) and results[idx].boxes is not None:
-            for b in results[idx].boxes:
-                x1, y1, x2, y2 = map(int, b.xyxy[0].cpu().numpy())
-                p_boxes.append((x1, y1, x2, y2))
-
+        p_boxes = per_frame_boxes[idx] if idx < len(per_frame_boxes) else []
         timestamp_sec = round(idx / fps, 2)
 
         # Detect weapons in current frame for bounding box rendering
@@ -158,14 +161,9 @@ async def analyze_video_upload(file: UploadFile = File(...), threshold: float = 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
         elif t_level == "PHYSICAL ALTERCATION DETECTED":
-            # Red Header
-            cv2.rectangle(ann_frame, (0, 0), (width, 45), (0, 0, 220), -1)
-            cv2.putText(ann_frame, f"!!! PHYSICAL ALTERCATION DETECTED at {timestamp_sec}s !!!",
-                        (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-            for (x1, y1, x2, y2) in p_boxes:
-                cv2.rectangle(ann_frame, (x1, y1), (x2, y2), (0, 0, 255), 3)
-                cv2.putText(ann_frame, "FIGHTER", (x1 + 5, max(15, y1 - 7)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            is_fight, fight_score = frame_is_in_fight_window(timestamp_sec, window_evaluations, threshold)
+            box = closest_pair_box(p_boxes) if p_boxes else None
+            ann_frame = draw_fight_alert(ann_frame, box, fight_score if is_fight else max_confidence)
 
         elif t_level == "SUSPICIOUS ALTERCATION":
             # Orange Header
@@ -176,14 +174,10 @@ async def analyze_video_upload(file: UploadFile = File(...), threshold: float = 
                 cv2.rectangle(ann_frame, (x1, y1), (x2, y2), (0, 165, 255), 2)
 
         else:
-            # Green Header
-            cv2.rectangle(ann_frame, (0, 0), (width, 35), (40, 40, 40), -1)
-            cv2.putText(ann_frame, f"Status: NORMAL | Time: {timestamp_sec}s",
-                        (15, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-            for (x1, y1, x2, y2) in p_boxes:
-                cv2.rectangle(ann_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            ann_frame = draw_normal_boxes(ann_frame, p_boxes)
 
         writer.write(ann_frame)
+
 
     writer.release()
 

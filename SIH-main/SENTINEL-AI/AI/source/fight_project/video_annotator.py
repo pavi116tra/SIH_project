@@ -66,9 +66,13 @@ def closest_pair_box(boxes, pad=15):
                 best_dist = d
                 best_pair = (i, j)
 
+    if best_pair is None:
+        return enclosing_box(boxes, pad)
+
     i, j = best_pair
     pair_boxes = [boxes[i], boxes[j]]
     return enclosing_box(pair_boxes, pad)
+
 
 
 def draw_fight_alert(frame, box, score):
