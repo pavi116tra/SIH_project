@@ -23,17 +23,19 @@ def frame_is_in_fight_window(frame_time, window_results, threshold):
     """
     window_results: list of dicts like
         {"start_time": 0.13, "end_time": 1.07, "score": 0.658}
-    (this is exactly what your sliding_window_infer function already produces
-    per window - just keep start/end/score for each window instead of throwing
-    them away after building the timeline panel)
+        or {"start_sec": 0.13, "end_sec": 1.07, "combined_score": 0.658}
     """
     best_score = 0.0
     hit = False
     for w in window_results:
-        if w["start_time"] <= frame_time <= w["end_time"] and w["score"] >= threshold:
+        start_t = w.get("start_sec", w.get("start_time", 0.0))
+        end_t = w.get("end_sec", w.get("end_time", 0.0))
+        score_val = w.get("combined_score", w.get("score", 0.0))
+        if start_t <= frame_time <= end_t and score_val >= threshold:
             hit = True
-            best_score = max(best_score, w["score"])
+            best_score = max(best_score, score_val)
     return hit, best_score
+
 
 
 def enclosing_box(boxes, pad=15):
