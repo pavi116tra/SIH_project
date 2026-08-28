@@ -114,7 +114,8 @@ def annotate_video(input_path, output_path, per_frame_boxes, window_results,
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+
     writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     frame_idx = 0

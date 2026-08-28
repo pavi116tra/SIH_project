@@ -31,7 +31,8 @@ def crop_video_to_3_seconds(input_path, output_path, target_duration_sec=3.0):
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
+
 
     writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)

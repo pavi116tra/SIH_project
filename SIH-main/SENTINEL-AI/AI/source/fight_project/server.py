@@ -74,8 +74,9 @@ async def analyze_video_upload(file: UploadFile = File(...), threshold: float = 
     if pipeline is None:
         raise HTTPException(status_code=500, detail="Fight Detection Pipeline failed to load.")
 
+    orig_filename = file.filename or "uploaded_video.mp4"
     file_id = str(uuid.uuid4())[:8]
-    ext = os.path.splitext(file.filename)[1] or ".mp4"
+    ext = os.path.splitext(orig_filename)[1] or ".mp4"
     raw_filename = f"upload_{file_id}{ext}"
     raw_path = os.path.join(UPLOADS_DIR, raw_filename)
 
@@ -88,7 +89,7 @@ async def analyze_video_upload(file: UploadFile = File(...), threshold: float = 
     cap = cv2.VideoCapture(raw_path)
     if not cap.isOpened():
         os.remove(raw_path)
-        raise HTTPException(status_code=400, detail=f"Corrupted video file: Unable to open '{file.filename}'.")
+        raise HTTPException(status_code=400, detail=f"Corrupted video file: Unable to open '{orig_filename}'.")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     all_frames = []
@@ -102,7 +103,7 @@ async def analyze_video_upload(file: UploadFile = File(...), threshold: float = 
 
     if len(all_frames) == 0:
         os.remove(raw_path)
-        raise HTTPException(status_code=400, detail=f"No readable video frames found in '{file.filename}'.")
+        raise HTTPException(status_code=400, detail=f"No readable video frames found in '{orig_filename}'.")
 
     # 1. Run Deep Frame-by-Frame & Window Multimodal Inference
     pipeline.fight_threshold = threshold
@@ -122,8 +123,9 @@ async def analyze_video_upload(file: UploadFile = File(...), threshold: float = 
     out_path = os.path.join(UPLOADS_DIR, out_filename)
 
     height, width = all_frames[0].shape[:2]
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     writer = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
+
 
     # 2. Frame-by-Frame Render with Weapon Bounding Boxes & Video Annotator HUD
     per_frame_boxes = []
@@ -198,7 +200,8 @@ async def analyze_video_upload(file: UploadFile = File(...), threshold: float = 
 
     return {
         "status": "success",
-        "filename": file.filename,
+        "filename": orig_filename,
+
         "total_frames": len(all_frames),
         "video_duration_sec": round(len(all_frames) / fps, 2),
         "overall_threat_level": overall_threat,

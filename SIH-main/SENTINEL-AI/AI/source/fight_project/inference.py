@@ -28,7 +28,8 @@ def run_video_inference(video_source, output_video_path=None, show_display=False
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+
         writer = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
         print(f"Saving output annotated video to '{output_video_path}'")
 
