@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from pipeline import DeepMultimodalThreatPipeline
 from alert_system import AlertSystem
+from video_annotator import annotate_video, frame_is_in_fight_window, closest_pair_box, draw_fight_alert, draw_normal_boxes
+
 
 app = FastAPI(
     title="Sentinel Deep Frame-by-Frame Threat & Weapon Detection API",
